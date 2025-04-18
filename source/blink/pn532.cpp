@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <vector>
 
 #include "pico/malloc.h"
 #include "pico/stdlib.h"
@@ -57,6 +58,7 @@ pn532_t::pn532_t(uart_inst_t* u, int rx_pin, int tx_pin)
     bool enabled = uart_is_enabled(uart_);
     printf("uart_is_enabled: %u\n", enabled);
 
+#if 0
     //for (int i=0; i<5; i++)
     if (false)
     {
@@ -73,25 +75,24 @@ pn532_t::pn532_t(uart_inst_t* u, int rx_pin, int tx_pin)
         printf("wakeup sent !\n");
         sleep_ms(5);
     }
-
-    uint8_t wakeup_preamble = 0x55;
-    for (int i = 0; i < 32; ++i) {
-        uart_putc_raw(uart_, wakeup_preamble);
-        uart_tx_wait_blocking(uart_);
-        sleep_us(10);
-    }
-    sleep_ms(3);
-
+#endif
+    const uint8_t wakeup_char = 0x55;
+    const int wakeup_len = 100;
+    uint8_t* wakeup_frame = (uint8_t*)malloc(wakeup_len);
+    memset(wakeup_frame, wakeup_len, wakeup_char);
+    uart_write_blocking(uart_, wakeup_frame, sizeof(wakeup_frame));
+    //sleep_ms(3);
+#if 0
     while (uart_is_readable_within_us(uart_, 1000))
     {
         // drop
         printf("drain %#x\n", uart_getc(uart_));
         //sleep_ms(10);
     }
-
+#endif
     // SAM config to normal mode
-    const uint8_t samcfg[] = {SAM_CONFIG, 0x01, 0x00, 0x01};
-    write(samcfg, sizeof(samcfg), WRITE_PREAMBLE_LEN);
+    const uint8_t samcfg[] = {SAM_CONFIG, 0x01, 0x14 /* 1sec */, 0x00};
+    write(samcfg, sizeof(samcfg), 10);//WRITE_PREAMBLE_LEN);
     //sleep_ms(10);
     //printf("SAM config sent !\n");
 
@@ -103,7 +104,7 @@ pn532_t::pn532_t(uart_inst_t* u, int rx_pin, int tx_pin)
             printf("read %#x\n", uart_getc(uart_));
         }
     }
-
+#if 0
     // read ACK
     bool timed_out;
     // TODO re-enable
@@ -128,6 +129,7 @@ pn532_t::pn532_t(uart_inst_t* u, int rx_pin, int tx_pin)
             printf("PN532 initialized over UART.\n");
         }
     }
+#endif
 }
 
 uint32_t pn532_t::version()
@@ -165,7 +167,7 @@ uint32_t pn532_t::version()
 void pn532_t::write(const uint8_t* data, int len, int preamble_len)
 {
     //
-    preamble_len = 1;
+    //preamble_len = 1;
     uint8_t* frame = (uint8_t*)malloc(len + 7 + preamble_len);
     int i = 0;
     for (int k=0; k<preamble_len; k++)
@@ -187,22 +189,26 @@ void pn532_t::write(const uint8_t* data, int len, int preamble_len)
     frame[i++] = 0x100 - (uint8_t)checksum;
     frame[i++] = 0x00;
 
-    printf("writting: ");
+    printf("writting: \n");
     for (int k=0; k<i; k++)
     {
-        printf("%#x " , frame[k]);
+        if (k % 10 == 0)
+        {
+            printf("\n%3d : ", k);
+        }
+        printf("%2x " , frame[k]);
     }
     printf("\nlen: %i\n", i);
 
-    //uart_write_blocking(uart_, frame, i);
+    uart_write_blocking(uart_, frame, i);
     //uart_tx_wait_blocking(uart_);
 
-    for (int p=0; p<i; p++)
-    {
-        uart_putc_raw(uart_, frame[p]);
-        uart_tx_wait_blocking(uart_);
-        sleep_us(10);
-    }
+    //for (int p=0; p<i; p++)
+    //{
+    //    uart_putc_raw(uart_, frame[p]);
+    //    uart_tx_wait_blocking(uart_);
+    //    sleep_us(10);
+    //}
 
     printf("Wrote %i bytes\n", i);
 }
