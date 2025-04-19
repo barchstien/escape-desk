@@ -3,15 +3,17 @@
 
 #include <deque>
 #include <iomanip>
+//#include <memory>
 #include <stdint.h>
 #include <stdbool.h>
 //#include <sstream>
+#include <vector>
 
 #include "hardware/uart.h"
 
 //#define PN532_MIFARE_ISO14443A 0x00
 
-static inline void hexdump(std::deque<uint8_t>& data)
+static inline void hexdump(std::vector<uint8_t>& data)
 {
     //std::stringstream ss;
     for (int i=0; i<data.size(); i++)
@@ -19,6 +21,14 @@ static inline void hexdump(std::deque<uint8_t>& data)
         printf("%#x ", data[i]);
     }
     //return ss.str();
+}
+
+static inline void hexdump(std::deque<uint8_t>& data)
+{
+    for (int i=0; i<data.size(); i++)
+    {
+        printf("%#x ", data[i]);
+    }
 }
 
 #if 0
@@ -69,17 +79,21 @@ private:
     int rx_pin_;
     int tx_pin_;
 
+    void wakeup();
+    
     /** Write a frame command/data */
-    void write(const uint8_t* data, int len, int preamble_len);
+    void write_frame(const uint8_t* data, int len, int preamble_len);
     
     /** 
-     * Read a frame command/data/ACK/NACK and timeout 
-     * @param len if 0 wait for ACK/NACK
-     * @param timed_out
+     * @return data without preamble LEN LCS TFI DCS postamble
      */
-    std::deque<uint8_t> read(bool& timed_out, bool ack_nack=false);
+    std::vector<uint8_t> read_frame();
 
-    bool wait_for_ack();
+    /**
+     * @return true if ACK, false if NACK
+     */
+    bool read_ack();
+
 };
 
 #endif // PN532_H

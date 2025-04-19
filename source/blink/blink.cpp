@@ -19,13 +19,12 @@ int main()
     
     //uart_init(UART_ID, BAUD_RATE);
     pn532_t pn532(PN532_UART_ID, PN532_UART_RX_PIN, PN532_UART_TX_PIN);
-    //printf("FW %#x\n", pn532.version());
+    printf("FW %#x\n", pn532.version());
 
+    printf("Wait...\n");
+    sleep_ms(15000);
+    printf("FW %#x\n", pn532.version());
     
-
-    
-    printf("Initializing PN532 over UART...\n");
-    //pn532_uart_init(&pn532);
 #if 0
     printf("Getting FW version...\n");
     uint32_t versiondata = pn532_getFirmwareVersion(&pn532);
@@ -42,7 +41,7 @@ int main()
 #endif
 
     while (1) {
-        printf("Looking for NFC tags... DUMMY\n");
+        //printf("Looking for NFC tags... DUMMY\n");
         //look_for_tag();
         sleep_ms(3000);  // Delay before the next scan attempt
     }
