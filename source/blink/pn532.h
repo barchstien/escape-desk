@@ -74,6 +74,8 @@ struct pn532_t
 
     uint32_t version();
 
+    void loop_for_tag();
+
 private:
     uart_inst_t *uart_;
     int rx_pin_;

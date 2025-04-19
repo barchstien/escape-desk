@@ -15,6 +15,7 @@
 #define GET_FW_ANSWER_LEN 5
 #define SAM_CONFIG 0x14
 #define SAM_CONFIG_ANWSER_LEN 1
+#define IN_LIST_PASSIVE_TARGET 0x4a
 
 #define READ_TIMEOUT_USEC 20000
 #define WRITE_PREAMBLE_LEN 10//20
@@ -128,7 +129,48 @@ uint32_t pn532_t::version()
         return 0;
     }
     return data[1] << 24 | data[2] << 16 | data[3] << 8 | data[4];
+}
 
+void pn532_t::loop_for_tag()
+{
+    // TODO allow to return result
+    while (true)
+    {
+        const uint8_t get_tag_cmd[] = {
+            IN_LIST_PASSIVE_TARGET, // Init etc
+            0x01, // MaxTg [1; 2]
+            0x00  // BrTy baud 0:106 kbps type A (ISO/IEC14443 Type A)
+        };
+        write_frame(get_tag_cmd, sizeof(get_tag_cmd), 1);
+
+        // debug just dump what is read
+        int cnt = 0;
+        while (uart_is_readable_within_us(uart_, READ_TIMEOUT_USEC))
+        {
+            if (cnt % 10 == 0)
+            {
+                printf("\n%3d : ", cnt);
+            }
+            printf("%2x " , uart_getc(uart_));
+            cnt++;
+        }
+            
+        //if (read_ack() == true)
+        //{
+        //    auto answer = read_frame();
+        //    if (answer.size() > 0)
+        //    {
+        //        printf("Tag :: ");
+        //        hexdump(answer);
+        //        printf("\n");
+        //    }
+        //}
+        //else
+        //{
+        //    printf("no tag... wait\n");
+        //}
+        sleep_ms(5000);
+    }
 }
 
 void pn532_t::wakeup()
@@ -189,7 +231,7 @@ void pn532_t::write_frame(const uint8_t* data, int len, int preamble_len)
     //    sleep_us(10);
     //}
 
-    printf("Wrote %i bytes\n", i);
+    //printf("Wrote %i bytes\n", i);
 }
 
 std::vector<uint8_t> pn532_t::read_frame()
@@ -235,7 +277,7 @@ std::vector<uint8_t> pn532_t::read_frame()
     while (uart_is_readable_within_us(uart_, READ_TIMEOUT_USEC))
     {
         data.push_back(uart_getc(uart_));
-        printf("read post: %#x\n", data.back());
+        //printf("read post: %#x\n", data.back());
         if (data.size() == 2)
         {
             // got LEC and its checksum

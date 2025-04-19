@@ -22,8 +22,10 @@ int main()
     printf("FW %#x\n", pn532.version());
 
     printf("Wait...\n");
-    sleep_ms(15000);
-    printf("FW %#x\n", pn532.version());
+    sleep_ms(1000);
+    //printf("FW %#x\n", pn532.version());
+
+    pn532.loop_for_tag();
     
 #if 0
     printf("Getting FW version...\n");
