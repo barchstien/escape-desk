@@ -65,17 +65,24 @@ pn532_t::pn532_t(uart_inst_t* u, int rx_pin, int tx_pin)
     // SAM config to normal mode
     const uint8_t samcfg[] = {SAM_CONFIG, 0x01, 0x14 /* 1sec */, 0x00};
     write_frame(samcfg, sizeof(samcfg), WRITE_PREAMBLE_LEN);
+    sleep_ms(100);
 
-#if 1
-    if (read_ack() == true)
+    auto frame = read_frame();
+    if (pn532_t::is_ack(frame))
     {
         printf("SAM Config ACK\n");
     }
     else
     {
-        printf("SAM Config NACK.....\n");
+        if (frame.size() == 0)
+        {
+            printf("SAM Config answer time out\n");
+        }
+        else
+        {
+            printf("SAM Config NACK.....\n");
+        }
     }
-#endif
 
 #if 1
     // read answer expects:
@@ -106,13 +113,21 @@ uint32_t pn532_t::version()
     uint8_t cmd = GET_FW_VERSION;
     write_frame(&cmd, 1, WRITE_PREAMBLE_LEN);
     // read ACK
-    if (read_ack() == true)
+    auto frame = read_frame();
+    if (pn532_t::is_ack(frame))
     {
         printf("Version ACK\n");
     }
     else
     {
-        printf("Version NACK.....\n");
+        if (frame.size() == 0)
+        {
+            printf("Version answer time out\n");
+        }
+        else
+        {
+            printf("Version NACK.....\n");
+        }
     }
 
     // read answer expects:
@@ -120,7 +135,7 @@ uint32_t pn532_t::version()
     auto data = read_frame();
     if (data.size() != 5)
     {
-        printf("bad size expects 5 got %i\n", data.size());
+        printf("version answer expected to be 5 bytes but got %i\n", data.size());
         return 0;
     }
     if (data[0] != GET_FW_VERSION + 1)
@@ -169,6 +184,7 @@ void pn532_t::loop_for_tag()
         //{
         //    printf("no tag... wait\n");
         //}
+        printf("\n-----------------\n");
         sleep_ms(5000);
     }
 }
@@ -221,7 +237,7 @@ void pn532_t::write_frame(const uint8_t* data, int len, int preamble_len)
     printf("\nlen: %i\n", i);
 #endif
     uart_write_blocking(uart_, frame, i);
-    //uart_tx_wait_blocking(uart_);
+    uart_tx_wait_blocking(uart_);
     free(frame);
 
     //for (int p=0; p<i; p++)
@@ -236,137 +252,121 @@ void pn532_t::write_frame(const uint8_t* data, int len, int preamble_len)
 
 std::vector<uint8_t> pn532_t::read_frame()
 {
-    std::vector<uint8_t> data;
+    std::deque<uint8_t> frame;
     
-    // read until getting expected sequence 
-    // 1. preamble + start = 3 bytes
+    // read until getting expected start sequence 
     while (uart_is_readable_within_us(uart_, READ_TIMEOUT_USEC))
     {
-        data.push_back(uart_getc(uart_));
-        //printf("read pre: %#x\n", data.back());
-        if (data.size() >= 3)
+        frame.push_back(uart_getc(uart_));
+        printf("read pre: %#x\n", frame.back());
+        if (frame.size() == 2)
         {
-            if (data[0] != 0 || data[1] != 0 || data[2] != 0xff)
+            if (frame[0] != 0 || frame[1] != 0xff)
             {
-                printf("bad frame start %#x %#x %#x \n", data[0], data[1], data[2]);
-                return std::vector<uint8_t>();
+                //printf("bad frame start %#x %#x \n", frame[0], frame[1]);
+                //return std::deque<uint8_t>();
+                // pass until we get start code 0x00 0xff
+                frame.pop_front();
+                continue;
             }
             break;
         }
     }
-    if (data.size() != 3)
+    if (frame.size() != 2)
     {
-        return std::vector<uint8_t>();
+        if (frame[0] != 0 || frame[1] != 0xff)
+        {
+            return std::vector<uint8_t>();
+        }
     }
-    data.clear();
-    //printf("Got head ---- %i\n", data.size());
+    frame.clear();
 
-    // 2. data + postamble = 3 bytes
-    // OR LEN + LCS + {LEN bytes} + DCS + POST = 4 + {LEN} bytes
-    int bytes_to_read = 0;
-    //if (ack_nack)
-    //{
-    //    bytes_to_read = 3;
-    //    printf("expects ack/nack\n");
-    //}
-    //else
-    {
-        // will be incremented after
-        bytes_to_read = 4;
-    }
+    // normal frame follows with:
+    //  LEN + LCS + {LEN bytes} + DCS + POST = 4 + {LEN} bytes
+    // ACL/NACK frame follows with: 
+    //   0x00 0xff (ACK)  | 0x00 (postamble)
+    //   0xff 0x00 (NACK) | 0x00 (postamble)
+    // ACK/NACK postamble is ignored. It will be consumed as next frame preamble
+    int bytes_to_read = 4;
+
     while (uart_is_readable_within_us(uart_, READ_TIMEOUT_USEC))
     {
-        data.push_back(uart_getc(uart_));
-        //printf("read post: %#x\n", data.back());
-        if (data.size() == 2)
+        frame.push_back(uart_getc(uart_));
+        printf("read post: %#x\n", frame.back());
+        if (frame.size() == 2)
         {
-            // got LEC and its checksum
-            if ((uint8_t)(data[0] + data[1]) != 0)
+            // 2 first bytes are either LEN + LCS or ACK/NACK
+            if (
+                frame[0] == 0x00 && frame[1] == 0xff ||
+                frame[0] == 0xff && frame[1] == 0x00
+            )
             {
-                printf("bad LEN %#x %#x \n", data[0], data[1]);
+                // ACK/NACK
+                return std::vector<uint8_t>(frame.begin(), frame.end());
+            }
+            // got LEN and its checksum
+            if ((uint8_t)(frame[0] + frame[1]) != 0)
+            {
+                printf("bad LEN %#x %#x \n", frame[0], frame[1]);
                 return std::vector<uint8_t>();
             }
             // length
-            bytes_to_read += data[0];
+            bytes_to_read += frame[0];
             //printf("Got LEN %i \n", bytes_to_read);
         }
-        if (data.size() == bytes_to_read)
+        if (frame.size() == bytes_to_read)
         {
             break;
         }
     }
 
-    if (data.size() != bytes_to_read)
+    if (frame.size() != bytes_to_read)
     {
         return std::vector<uint8_t>();
     }
     uint8_t checksum = 0;
-    for (int k=0; k<data[0]; k++)
+    for (int k=0; k<frame[0]; k++)
     {
-        checksum += data[k+2];
+        checksum += frame[k+2];
     }
     checksum = 0x100 - checksum;
-    if (checksum != data[data[0]+2])
+    if (checksum != frame[frame[0]+2])
     {
-        printf("received bad checksum expect %#x got %#x \n", checksum, data[data[0]+2]);
+        printf("received bad checksum expect %#x got %#x \n", checksum, frame[frame[0]+2]);
         return std::vector<uint8_t>();
     }
-    if (data[bytes_to_read - 1 ] != 0)
+    if (frame[bytes_to_read - 1 ] != 0)
     {
-        printf("received bad postamble expect 0x00 got %#x \n", data[bytes_to_read - 1]);
+        printf("received bad postamble expect 0x00 got %#x \n", frame[bytes_to_read - 1]);
         return std::vector<uint8_t>();
     }
-    //printf("Got tail data.size(): %i \n", data.size());
+    //printf("Got tail frame.size(): %i \n", frame.size());
 
     // strip LEN, LCS, TFI
-    //data.pop_front();
-    //data.pop_front();
-    //data.pop_front();
-    memmove(data.data(), data.data()+3, data.size() - 3);
-    data.resize(data.size() - 3);
+    frame.pop_front();
+    frame.pop_front();
+    frame.pop_front();
     // strip DCS, postamble
-    //data.pop_back();
-    //data.pop_back();
-    data.resize(data.size() - 2);
-    return data;
+    frame.pop_back();
+    frame.pop_back();
+    return std::vector<uint8_t>(frame.begin(), frame.end());
 }
 
-bool pn532_t::read_ack()
+bool pn532_t::is_ack(std::vector<uint8_t> frame)
 {
-    std::deque<uint8_t> f;
-    while (uart_is_readable_within_us(uart_, READ_TIMEOUT_USEC))
-    {
-        f.push_back(uart_getc(uart_));
-        if (f.size() == 2)
-        {
-            if (f[0] != 0x00 || f[1] != 0xff)
-            {
-                f.pop_front();
-            }
-        }
-        else if (f.size() >= 5)
-        {
-            break;
-        }
-    }
-
-    // debug
-    //printf("ACK/NACK: ");
-    //hexdump(f);
-    //printf("\n");
-
-    if (f.size() != 5)
+    if (frame.size() < 2)
     {
         return false;
     }
-    uint8_t ACK[] = {0x00, 0xff, 0x00, 0xff, 0x00};
-    bool equality = true;
-    for (int i=0; i<sizeof(ACK); i++)
-    {
-        if (ACK[i] != f[i])
-        {
-            equality = false;
-        }
-    }
-    return equality;
+    return frame[0] == 0x00 && frame[1] == 0xff;
 }
+
+bool pn532_t::is_nack(std::vector<uint8_t> frame)
+{
+    if (frame.size() < 2)
+    {
+        return false;
+    }
+    return frame[0] == 0xff && frame[1] == 0x00;
+}
+

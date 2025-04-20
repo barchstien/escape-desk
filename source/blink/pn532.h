@@ -76,26 +76,28 @@ struct pn532_t
 
     void loop_for_tag();
 
-private:
-    uart_inst_t *uart_;
-    int rx_pin_;
-    int tx_pin_;
-
     void wakeup();
     
     /** Write a frame command/data */
     void write_frame(const uint8_t* data, int len, int preamble_len);
     
     /** 
+     * Read the frame, verify integrity
      * @return data without preamble LEN LCS TFI DCS postamble
+     *         or OxAC for ACK, or 0xAD for NACK
      */
     std::vector<uint8_t> read_frame();
 
-    /**
-     * @return true if ACK, false if NACK
+    /** 
+     * @param frame 2 bytes, as received from read_frame()
      */
-    bool read_ack();
+    static bool is_ack(std::vector<uint8_t> frame);
+    static bool is_nack(std::vector<uint8_t> frame);
 
+private:
+    uart_inst_t *uart_;
+    int rx_pin_;
+    int tx_pin_;
 };
 
 #endif // PN532_H
