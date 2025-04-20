@@ -7,7 +7,7 @@
 #include <string.h>
 #include <vector>
 
-#include "pico/malloc.h"
+//#include "pico/malloc.h"
 #include "pico/stdlib.h"
 
 
@@ -157,7 +157,7 @@ void pn532_t::loop_for_tag()
             0x00  // BrTy baud 0:106 kbps type A (ISO/IEC14443 Type A)
         };
         write_frame(get_tag_cmd, sizeof(get_tag_cmd), 1);
-
+#if 0
         // debug just dump what is read
         int cnt = 0;
         while (uart_is_readable_within_us(uart_, READ_TIMEOUT_USEC))
@@ -168,6 +168,30 @@ void pn532_t::loop_for_tag()
             }
             printf("%2x " , uart_getc(uart_));
             cnt++;
+        }
+#endif
+
+        auto frame = read_frame();
+        if (pn532_t::is_nack(frame))
+        {
+            printf("%%%% got NACK !!!!\n");
+            sleep_ms(1000);
+        }
+        else if (pn532_t::is_ack(frame))
+        {
+            //printf("%%%% got ACK !!!!\n");
+        }
+        else if (frame.size() == 0)
+        {
+            // nothing
+            printf(".");
+        }
+        // starting from here, frame is considered well formed
+        else// if (frame[2] == IN_LIST_PASSIVE_TARGET + 1)
+        {
+            printf("got frame: ");
+            hexdump(frame);
+            printf("\n");
         }
             
         //if (read_ack() == true)
@@ -201,8 +225,6 @@ void pn532_t::wakeup()
 
 void pn532_t::write_frame(const uint8_t* data, int len, int preamble_len)
 {
-    //
-    //preamble_len = 1;
     uint8_t* frame = (uint8_t*)malloc(len + 7 + preamble_len);
     int i = 0;
     for (int k=0; k<preamble_len; k++)
@@ -239,15 +261,6 @@ void pn532_t::write_frame(const uint8_t* data, int len, int preamble_len)
     uart_write_blocking(uart_, frame, i);
     uart_tx_wait_blocking(uart_);
     free(frame);
-
-    //for (int p=0; p<i; p++)
-    //{
-    //    uart_putc_raw(uart_, frame[p]);
-    //    uart_tx_wait_blocking(uart_);
-    //    sleep_us(10);
-    //}
-
-    //printf("Wrote %i bytes\n", i);
 }
 
 std::vector<uint8_t> pn532_t::read_frame()
@@ -258,13 +271,11 @@ std::vector<uint8_t> pn532_t::read_frame()
     while (uart_is_readable_within_us(uart_, READ_TIMEOUT_USEC))
     {
         frame.push_back(uart_getc(uart_));
-        printf("read pre: %#x\n", frame.back());
+        //printf("read pre: %#x\n", frame.back());
         if (frame.size() == 2)
         {
             if (frame[0] != 0 || frame[1] != 0xff)
             {
-                //printf("bad frame start %#x %#x \n", frame[0], frame[1]);
-                //return std::deque<uint8_t>();
                 // pass until we get start code 0x00 0xff
                 frame.pop_front();
                 continue;
@@ -292,7 +303,7 @@ std::vector<uint8_t> pn532_t::read_frame()
     while (uart_is_readable_within_us(uart_, READ_TIMEOUT_USEC))
     {
         frame.push_back(uart_getc(uart_));
-        printf("read post: %#x\n", frame.back());
+        //printf("read post: %#x\n", frame.back());
         if (frame.size() == 2)
         {
             // 2 first bytes are either LEN + LCS or ACK/NACK
@@ -340,7 +351,6 @@ std::vector<uint8_t> pn532_t::read_frame()
         printf("received bad postamble expect 0x00 got %#x \n", frame[bytes_to_read - 1]);
         return std::vector<uint8_t>();
     }
-    //printf("Got tail frame.size(): %i \n", frame.size());
 
     // strip LEN, LCS, TFI
     frame.pop_front();

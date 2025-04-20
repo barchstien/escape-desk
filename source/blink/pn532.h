@@ -15,12 +15,10 @@
 
 static inline void hexdump(std::vector<uint8_t>& data)
 {
-    //std::stringstream ss;
     for (int i=0; i<data.size(); i++)
     {
         printf("%#x ", data[i]);
     }
-    //return ss.str();
 }
 
 static inline void hexdump(std::deque<uint8_t>& data)
