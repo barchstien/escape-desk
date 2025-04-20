@@ -21,7 +21,7 @@ int main()
     pn532_t pn532(PN532_UART_ID, PN532_UART_RX_PIN, PN532_UART_TX_PIN);
     printf("FW %#x\n", pn532.version());
 
-    printf("Wait...\n");
+    //printf("Wait...\n");
     sleep_ms(1000);
     //printf("FW %#x\n", pn532.version());
 

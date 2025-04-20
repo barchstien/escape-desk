@@ -149,14 +149,15 @@ uint32_t pn532_t::version()
 void pn532_t::loop_for_tag()
 {
     // TODO allow to return result
+    const uint8_t get_tag_cmd[] = {
+        IN_LIST_PASSIVE_TARGET, // Init etc
+        0x01, // MaxTg [1; 2]
+        0x00  // BrTy baud 0:106 kbps type A (ISO/IEC14443 Type A)
+    };
+    write_frame(get_tag_cmd, sizeof(get_tag_cmd), 1);
     while (true)
     {
-        const uint8_t get_tag_cmd[] = {
-            IN_LIST_PASSIVE_TARGET, // Init etc
-            0x01, // MaxTg [1; 2]
-            0x00  // BrTy baud 0:106 kbps type A (ISO/IEC14443 Type A)
-        };
-        write_frame(get_tag_cmd, sizeof(get_tag_cmd), 1);
+        //write_frame(get_tag_cmd, sizeof(get_tag_cmd), 1);
 #if 0
         // debug just dump what is read
         int cnt = 0;
@@ -184,13 +185,19 @@ void pn532_t::loop_for_tag()
         else if (frame.size() == 0)
         {
             // nothing
-            printf(".");
+            //printf(".");
         }
         // starting from here, frame is considered well formed
-        else// if (frame[2] == IN_LIST_PASSIVE_TARGET + 1)
+        else if (frame[0] == IN_LIST_PASSIVE_TARGET + 1)
         {
-            printf("got frame: ");
-            hexdump(frame);
+            // re-arm
+            write_frame(get_tag_cmd, sizeof(get_tag_cmd), 1);
+            std::vector<uint8_t> id = std::vector<uint8_t>(
+                frame.begin() + frame.size() - 4,
+                frame.end()
+            );
+            printf("got ID: ");
+            hexdump(id);
             printf("\n");
         }
             
@@ -208,8 +215,8 @@ void pn532_t::loop_for_tag()
         //{
         //    printf("no tag... wait\n");
         //}
-        printf("\n-----------------\n");
-        sleep_ms(5000);
+        //printf("\n-----------------\n");
+        //sleep_ms(5000);
     }
 }
 
