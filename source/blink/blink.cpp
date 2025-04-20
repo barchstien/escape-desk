@@ -19,6 +19,7 @@ int main()
     
     //uart_init(UART_ID, BAUD_RATE);
     pn532_t pn532(PN532_UART_ID, PN532_UART_RX_PIN, PN532_UART_TX_PIN);
+    //pn532_t pn532(uart1, 17, 16); //< Doesen't work, collides with USB / SERIAL ?
     printf("FW %#x\n", pn532.version());
 
     //printf("Wait...\n");

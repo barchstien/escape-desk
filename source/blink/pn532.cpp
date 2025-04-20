@@ -148,11 +148,16 @@ uint32_t pn532_t::version()
 
 void pn532_t::loop_for_tag()
 {
+    unsigned int cnt = 0;
     // TODO allow to return result
+
+    // 0x00  // BrTy baud 0:106 kbps type A (ISO/IEC14443 Type A)
+    // 0x03  // BrTy baud 0:106 kbps type type B (ISO/IEC14443-3B)
     const uint8_t get_tag_cmd[] = {
         IN_LIST_PASSIVE_TARGET, // Init etc
         0x01, // MaxTg [1; 2]
-        0x00  // BrTy baud 0:106 kbps type A (ISO/IEC14443 Type A)
+        0x00  // BrTY see above
+        //, 0x1f, 0x49, 0x5e, 0x1e //< To detect a known tag
     };
     write_frame(get_tag_cmd, sizeof(get_tag_cmd), 1);
     while (true)
@@ -196,9 +201,10 @@ void pn532_t::loop_for_tag()
                 frame.begin() + frame.size() - 4,
                 frame.end()
             );
-            printf("got ID: ");
+            printf("%3i got ID: ", cnt);
             hexdump(id);
             printf("\n");
+            cnt++;
         }
             
         //if (read_ack() == true)
