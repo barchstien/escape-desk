@@ -11,19 +11,21 @@
 #include "pico/stdlib.h"
 
 
-#define GET_FW_VERSION 0x02
-#define GET_FW_ANSWER_LEN 5
-#define SAM_CONFIG 0x14
-#define SAM_CONFIG_ANWSER_LEN 1
-#define IN_LIST_PASSIVE_TARGET 0x4a
+#define GET_FW_VERSION      0x02
+#define GET_FW_ANSWER_LEN   5
+#define SAM_CONFIG              0x14
+#define SAM_CONFIG_ANWSER_LEN   1
+#define IN_LIST_PASSIVE_TARGET  0x4a
 
 // Using read/write register to first poll values, then set
 //#define RF_CONFIG 0x32
 //#define RF_CONFIG_ITEM_ANALOG_106_TYPE_A 0x0a
 
-#define READ_REGISTER 0x06
-#define WRITE_REGISTER 0x08
-#define CIU_RFCfg 0x6316
+#define READ_REGISTER   0x06
+#define WRITE_REGISTER  0x08
+#define CIU_RFCfg       0x6316
+#define CIU_GsNOn0x     0x6317
+#define CIU_CWGsP       0x6318
 
 #define READ_TIMEOUT_USEC 20000
 #define WRITE_PREAMBLE_LEN 10//20
@@ -92,7 +94,6 @@ pn532_t::pn532_t(uart_inst_t* u, int rx_pin, int tx_pin)
         }
     }
 
-#if 1
     // read answer expects:
     // SAM_CONFIG +1 = 0x15
     auto data = read_frame();
@@ -119,6 +120,19 @@ pn532_t::pn532_t(uart_inst_t* u, int rx_pin, int tx_pin)
     // Se gain to Max, 33db --> 48db
     write_reg(CIU_RFCfg, 0x78);
     cfg_reg = read_reg(CIU_RFCfg);
+    printf("----------\n");
+#if 0
+    // Increase N-driver conductance
+    cfg_reg = read_reg(CIU_GsNOn0x);
+    //write_reg(CIU_GsNOn0x, 0xf8);
+    cfg_reg = read_reg(CIU_GsNOn0x);
+    printf("----------\n");
+
+    // Increase P-driver conductance
+    cfg_reg = read_reg(CIU_CWGsP);
+    //write_reg(CIU_CWGsP, 0x3f);
+    cfg_reg = read_reg(CIU_CWGsP);
+    printf("----------\n");
 #endif
 }
 
