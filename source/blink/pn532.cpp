@@ -17,6 +17,14 @@
 #define SAM_CONFIG_ANWSER_LEN 1
 #define IN_LIST_PASSIVE_TARGET 0x4a
 
+// Using read/write register to first poll values, then set
+//#define RF_CONFIG 0x32
+//#define RF_CONFIG_ITEM_ANALOG_106_TYPE_A 0x0a
+
+#define READ_REGISTER 0x06
+#define WRITE_REGISTER 0x08
+#define CIU_RFCfg 0x6316
+
 #define READ_TIMEOUT_USEC 20000
 #define WRITE_PREAMBLE_LEN 10//20
 
@@ -105,6 +113,9 @@ pn532_t::pn532_t(uart_inst_t* u, int rx_pin, int tx_pin)
             printf("PN532 initialized over UART.\n");
         }
     }
+
+    // Increase RF RX gain to max
+    uint8_t cfg_reg = read_reg(CIU_RFCfg);
 #endif
 }
 
@@ -393,3 +404,36 @@ bool pn532_t::is_nack(std::vector<uint8_t> frame)
     return frame[0] == 0xff && frame[1] == 0x00;
 }
 
+uint8_t pn532_t::read_reg(uint16_t reg)
+{
+    const uint8_t read_reg_cmd[] = {
+        READ_REGISTER, 
+        (uint8_t)(reg >> 8), 
+        (uint8_t)(reg)
+    };
+    write_frame(read_reg_cmd, sizeof(read_reg_cmd), WRITE_PREAMBLE_LEN);
+    // read ACK
+    auto frame = read_frame();
+
+
+    if (frame.size() == 0)
+    {
+        printf("Read reg ACK time out\n");
+    }
+    else if (pn532_t::is_nack(frame) == false)
+    {
+        printf("Read reg NACK.....\n");
+    }
+
+    //if (pn532_t::is_ack(frame) == false)
+    //{
+    //    printf("Read reg ACK\n");
+    //}
+
+    frame = read_frame();
+    printf("got Reg: ");
+    hexdump(frame);
+    printf("\n");
+
+    return frame[1];
+}

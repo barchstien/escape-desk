@@ -82,7 +82,7 @@ struct pn532_t
     /** 
      * Read the frame, verify integrity
      * @return data without preamble LEN LCS TFI DCS postamble
-     *         or OxAC for ACK, or 0xAD for NACK
+     *         or 0x00ff for ACK, or 0xff00 for NACK
      */
     std::vector<uint8_t> read_frame();
 
@@ -91,6 +91,9 @@ struct pn532_t
      */
     static bool is_ack(std::vector<uint8_t> frame);
     static bool is_nack(std::vector<uint8_t> frame);
+
+protected:
+    uint8_t read_reg(uint16_t reg);
 
 private:
     uart_inst_t *uart_;
