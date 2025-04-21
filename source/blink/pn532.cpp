@@ -115,22 +115,27 @@ pn532_t::pn532_t(uart_inst_t* u, int rx_pin, int tx_pin)
         }
     }
 
+#if 0
+    // Disabled coz no increased range
     // Increase RF RX gain to max
     uint8_t cfg_reg = read_reg(CIU_RFCfg);
     // Se gain to Max, 33db --> 48db
-    write_reg(CIU_RFCfg, 0x78);
+    //
+    //write_reg(CIU_RFCfg, 0x78);
     cfg_reg = read_reg(CIU_RFCfg);
     printf("----------\n");
+#endif
 #if 0
+    // Disabled coz no increased range
     // Increase N-driver conductance
     cfg_reg = read_reg(CIU_GsNOn0x);
-    //write_reg(CIU_GsNOn0x, 0xf8);
+    write_reg(CIU_GsNOn0x, 0xf8);
     cfg_reg = read_reg(CIU_GsNOn0x);
     printf("----------\n");
 
     // Increase P-driver conductance
     cfg_reg = read_reg(CIU_CWGsP);
-    //write_reg(CIU_CWGsP, 0x3f);
+    write_reg(CIU_CWGsP, 0x3f);
     cfg_reg = read_reg(CIU_CWGsP);
     printf("----------\n");
 #endif
