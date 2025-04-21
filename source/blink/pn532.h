@@ -94,6 +94,7 @@ struct pn532_t
 
 protected:
     uint8_t read_reg(uint16_t reg);
+    void write_reg(uint16_t reg, uint8_t value);
 
 private:
     uart_inst_t *uart_;

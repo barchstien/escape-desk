@@ -116,6 +116,9 @@ pn532_t::pn532_t(uart_inst_t* u, int rx_pin, int tx_pin)
 
     // Increase RF RX gain to max
     uint8_t cfg_reg = read_reg(CIU_RFCfg);
+    // Se gain to Max, 33db --> 48db
+    write_reg(CIU_RFCfg, 0x78);
+    cfg_reg = read_reg(CIU_RFCfg);
 #endif
 }
 
@@ -414,26 +417,47 @@ uint8_t pn532_t::read_reg(uint16_t reg)
     write_frame(read_reg_cmd, sizeof(read_reg_cmd), WRITE_PREAMBLE_LEN);
     // read ACK
     auto frame = read_frame();
-
-
     if (frame.size() == 0)
     {
         printf("Read reg ACK time out\n");
     }
-    else if (pn532_t::is_nack(frame) == false)
+    else if (pn532_t::is_ack(frame) != true)
     {
-        printf("Read reg NACK.....\n");
+        printf("Read reg Not an ACK.....\n");
     }
 
-    //if (pn532_t::is_ack(frame) == false)
-    //{
-    //    printf("Read reg ACK\n");
-    //}
-
+    // read response TODO
     frame = read_frame();
     printf("got Reg: ");
     hexdump(frame);
     printf("\n");
 
     return frame[1];
+}
+
+void pn532_t::write_reg(uint16_t reg, uint8_t value)
+{
+    const uint8_t write_reg_cmd[] = {
+        WRITE_REGISTER, 
+        (uint8_t)(reg >> 8), 
+        (uint8_t)(reg),
+        value
+    };
+    write_frame(write_reg_cmd, sizeof(write_reg_cmd), WRITE_PREAMBLE_LEN);
+    // read ACK
+    auto frame = read_frame();
+    if (frame.size() == 0)
+    {
+        printf("Write reg ACK time out\n");
+    }
+    else if (pn532_t::is_ack(frame) != true)
+    {
+        printf("Write reg Not an ACK.....\n");
+    }
+
+    // read response TODO
+    frame = read_frame();
+    printf("got Reg: ");
+    hexdump(frame);
+    printf("\n");
 }
