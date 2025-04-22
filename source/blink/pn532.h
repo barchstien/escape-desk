@@ -11,7 +11,6 @@
 
 #include "hardware/uart.h"
 
-//#define PN532_MIFARE_ISO14443A 0x00
 
 static inline void hexdump(std::vector<uint8_t>& data)
 {
@@ -28,17 +27,6 @@ static inline void hexdump(std::deque<uint8_t>& data)
         printf("%#x ", data[i]);
     }
 }
-
-#if 0
-typedef struct {
-    uart_inst_t *uart;
-} PN532;
-
-//void pn532_uart_init();
-uint32_t pn532_getFirmwareVersion(PN532 *dev);
-void pn532_SAMConfig(PN532 *dev);
-bool pn532_readPassiveTargetID(PN532 *dev, uint8_t cardbaudrate, uint8_t *uid, uint8_t *uidLength);
-#endif
 
 /**
  * Command and control PN532
@@ -64,6 +52,11 @@ bool pn532_readPassiveTargetID(PN532 *dev, uint8_t cardbaudrate, uint8_t *uid, u
  *     - TFI is 0xD5
  *     - TFI = request TFI + 1
  *  4. No need to ACK/NACK
+ * 
+ * HW
+ *  - uart_1, uart_0 doesn't work, probably coz it colides with usb/serial
+ *  - i2c 1 & 2, 400KHz
+ *    addr 0x24, ie 0x48 for write 0x49 for read
  */
 struct pn532_t
 {

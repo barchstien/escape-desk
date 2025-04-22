@@ -32,24 +32,6 @@
 
 #define BAUD_RATE 115200
 
-#if 0
- 
-
-bool pn532_readPassiveTargetID(PN532 *dev, uint8_t cardbaudrate, uint8_t *uid, uint8_t *uidLength) {
-    uint8_t command[] = {0x4A, 0x01, cardbaudrate};
-    uint8_t response[8];
-
-    uart_write_blocking(dev->uart, command, sizeof(command));
-    sleep_ms(50);
-    uart_read_blocking(dev->uart, response, 8);  // Read response buffer
-    
-    if (response[0] != 1) return false;
-
-    *uidLength = response[1];
-    memcpy(uid, &response[2], *uidLength);
-    return true;
-}
-#endif
 
 pn532_t::pn532_t(uart_inst_t* u, int rx_pin, int tx_pin)
     : uart_(u), rx_pin_(rx_pin), tx_pin_(tx_pin)
