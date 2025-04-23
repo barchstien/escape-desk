@@ -4,7 +4,7 @@
 
 #include "pn532.h"
 
-#define PN532_UART_ID uart1
+#define PN532_UART_ID 1//uart1
 //#define PN532_UART_ID uart1  // Use UART1
 #define PN532_UART_TX_PIN 4   // TX pin (GPIO 4)
 #define PN532_UART_RX_PIN 5   // RX pin (GPIO 5)

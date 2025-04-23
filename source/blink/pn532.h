@@ -3,13 +3,15 @@
 
 #include <deque>
 #include <iomanip>
-//#include <memory>
+#include <memory>
 #include <stdint.h>
 #include <stdbool.h>
 //#include <sstream>
 #include <vector>
 
-#include "hardware/uart.h"
+//#include <hardware/uart.h>
+
+#include "pn532_backend.h"
 
 
 static inline void hexdump(std::vector<uint8_t>& data)
@@ -61,7 +63,7 @@ static inline void hexdump(std::deque<uint8_t>& data)
 struct pn532_t
 {
     //
-    pn532_t(uart_inst_t* u, int rx_pin, int tx_pin);
+    pn532_t(int uart_num, int rx_pin, int tx_pin);
 
     uint32_t version();
 
@@ -89,10 +91,8 @@ protected:
     uint8_t read_reg(uint16_t reg);
     void write_reg(uint16_t reg, uint8_t value);
 
-private:
-    uart_inst_t *uart_;
-    int rx_pin_;
-    int tx_pin_;
+    std::shared_ptr<pn532_backend_t> backend_;
+
 };
 
 #endif // PN532_H
