@@ -68,8 +68,6 @@ struct pn532_t
     uint32_t version();
 
     void loop_for_tag();
-
-    void wakeup();
     
     /** Write a frame command/data */
     void write_frame(const uint8_t* data, int len, int preamble_len);

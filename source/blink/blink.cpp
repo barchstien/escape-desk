@@ -1,32 +1,38 @@
 #include <stdio.h>
-#include "pico/stdlib.h"
-#include "hardware/uart.h"
+#include <pico/stdlib.h>
+//#include "hardware/uart.h"
 
 #include "pn532.h"
 
-#define PN532_UART_ID 1//uart1
-//#define PN532_UART_ID uart1  // Use UART1
-#define PN532_UART_TX_PIN 4   // TX pin (GPIO 4)
-#define PN532_UART_RX_PIN 5   // RX pin (GPIO 5)
+#define PN532_UART_1_TX_PIN 4
+#define PN532_UART_1_RX_PIN 5
+
+#define PN532_UART_0_TX_PIN 16
+#define PN532_UART_0_RX_PIN 17
 
 //PN532 pn532;
 
 int main() 
 {
     stdio_init_all();
+    //stdio_usb_init();
     // Wait a little before starting
     sleep_ms(5000);
+    stdio_filter_driver(&stdio_usb);
     
-    //uart_init(UART_ID, BAUD_RATE);
-    pn532_t pn532(PN532_UART_ID, PN532_UART_RX_PIN, PN532_UART_TX_PIN);
-    //pn532_t pn532(uart1, 17, 16); //< Doesen't work, collides with USB / SERIAL ?
-    printf("FW %#x\n", pn532.version());
+    pn532_t pn532_1(1, PN532_UART_1_RX_PIN, PN532_UART_1_TX_PIN);
+    printf("--> uart:1 rx:%i tx:%i fw:%#x\n", 
+        PN532_UART_1_RX_PIN, PN532_UART_1_TX_PIN, pn532_1.version());
+
+    pn532_t pn532_0(0, PN532_UART_0_RX_PIN, PN532_UART_0_TX_PIN); //< Doesen't work, collides with USB / SERIAL ?
+    printf("--> uart:0 rx:%i tx:%i fw:%#x\n", 
+        PN532_UART_0_RX_PIN, PN532_UART_0_TX_PIN, pn532_0.version());
 
     //printf("Wait...\n");
     sleep_ms(1000);
     //printf("FW %#x\n", pn532.version());
 
-    pn532.loop_for_tag();
+    pn532_0.loop_for_tag();
     
 #if 0
     printf("Getting FW version...\n");

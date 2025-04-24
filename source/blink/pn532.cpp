@@ -40,7 +40,7 @@ pn532_t::pn532_t(int uart_num, int rx_pin, int tx_pin)
     backend_ = std::make_shared<pn532_backend_uart_t>();
     backend_->init(uart_num, rx_pin, tx_pin);
     
-    wakeup();
+    //wakeup();
     //sleep_ms(10);
 
     // SAM config to normal mode
@@ -78,14 +78,14 @@ pn532_t::pn532_t(int uart_num, int rx_pin, int tx_pin)
     else
     {
         //hexdump(data);
-        printf("\n");
+        //printf("\n");
         if (data[0] != SAM_CONFIG + 1)
         {
             printf("SAM config failed... got %#x\n", data[0]);
         }
         else
         {
-            printf("PN532 initialized over UART.\n");
+            printf("PN532 initialized\n----------\n");
         }
     }
 
@@ -218,15 +218,6 @@ void pn532_t::loop_for_tag()
     }
 }
 
-void pn532_t::wakeup()
-{
-    const uint8_t wakeup_char = 0x55;
-    const int wakeup_len = 100;
-    uint8_t* wakeup_frame = (uint8_t*)malloc(wakeup_len);
-    memset(wakeup_frame, wakeup_len, wakeup_char);
-    backend_->write_bytes(wakeup_frame, wakeup_len);
-    free(wakeup_frame);
-}
 
 void pn532_t::write_frame(const uint8_t* data, int len, int preamble_len)
 {
