@@ -10,6 +10,7 @@
 #include <vector>
 
 //#include <hardware/uart.h>
+#include <hardware/i2c.h>
 
 #include "pn532_backend.h"
 
@@ -64,6 +65,7 @@ struct pn532_t
 {
     //
     pn532_t(int uart_num, int rx_pin, int tx_pin);
+    pn532_t(i2c_inst_t* i2c, int scl, int sda);
 
     uint32_t version();
 

@@ -28,29 +28,34 @@ set(PICO_BOARD cytron_maker_pi_rp2040 CACHE STRING "Board type")
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
-project(blink C CXX ASM)
+project(escape-desk C CXX ASM)
 
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(blink
-    blink.cpp
+add_executable(escape-desk
+    main.cpp
     pn532.cpp
     )
 
 # pull in common dependencies
-target_link_libraries(blink pico_stdlib hardware_pwm hardware_uart)
+target_link_libraries(escape-desk 
+    pico_stdlib 
+    hardware_pwm 
+    hardware_uart
+    hardware_i2c
+)
 
-pico_enable_stdio_usb(blink 1)
-pico_enable_stdio_uart(blink 0)
+pico_enable_stdio_usb(escape-desk 1)
+pico_enable_stdio_uart(escape-desk 0)
 
-if (PICO_CYW43_SUPPORTED)
-    target_link_libraries(blink pico_cyw43_arch_none)
-endif()
+#if (PICO_CYW43_SUPPORTED)
+#    target_link_libraries(escape-desk pico_cyw43_arch_none)
+#endif()
 
 # create map/bin/hex file etc.
-pico_add_extra_outputs(blink)
+pico_add_extra_outputs(escape-desk)
 
 # add url via pico_set_program_url

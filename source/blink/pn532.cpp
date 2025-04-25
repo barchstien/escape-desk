@@ -115,6 +115,11 @@ pn532_t::pn532_t(int uart_num, int rx_pin, int tx_pin)
 #endif
 }
 
+pn532_t::pn532_t(i2c_inst_t* inst, int scl, int sda)
+{
+    //
+}
+
 uint32_t pn532_t::version()
 {
     uint8_t cmd = GET_FW_VERSION;
@@ -198,23 +203,6 @@ void pn532_t::loop_for_tag()
             printf("\n");
             cnt++;
         }
-            
-        //if (read_ack() == true)
-        //{
-        //    auto answer = read_frame();
-        //    if (answer.size() > 0)
-        //    {
-        //        printf("Tag :: ");
-        //        hexdump(answer);
-        //        printf("\n");
-        //    }
-        //}
-        //else
-        //{
-        //    printf("no tag... wait\n");
-        //}
-        //printf("\n-----------------\n");
-        //sleep_ms(5000);
     }
 }
 
