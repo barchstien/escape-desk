@@ -11,7 +11,7 @@
 
 struct pn532_backend_i2c_t : public pn532_backend_t
 {
-    static constexpr unsigned int BAUD_RATE = 400000;
+    static constexpr unsigned int BAUD_RATE = 100000;
 
     virtual void init(int i2c_num, int scl, int sda) override
     {
@@ -25,7 +25,15 @@ struct pn532_backend_i2c_t : public pn532_backend_t
         gpio_pull_up(scl_);
         gpio_pull_up(sda_);
 
-        sleep_ms(1);
+        sleep_ms(100);
+
+        // debug
+        //uint8_t data;
+        //printf("test....\n");
+        //int ret = i2c_read_blocking(i2c_, PN532_I2C_ADDRESS, &data, 1, false);
+        //printf(" - test read: %i\n", ret);
+        //ret = i2c_read_blocking(i2c_, PN532_I2C_ADDRESS, &data, 1, false);
+        //printf(" + test read: %i\n", ret);
 
         //bool enabled = uart_is_enabled(i2c_);
         //printf("UART %i is enabled: %u\n", i2c_num, enabled);
@@ -42,8 +50,28 @@ struct pn532_backend_i2c_t : public pn532_backend_t
         //    //printf("read_byte: %#x \n", c);
         //    return c;
         //}
-        wait_for_ready_byte();
-        return -1;
+        // TODO non-blocking !
+        //wait_for_ready_byte();
+        uint8_t ready_byte[10];
+        int ret = i2c_read_blocking(
+            i2c_, PN532_I2C_ADDRESS, 
+            ready_byte, 10, 
+            false // no STOP is true
+        );
+        if (ret < 0)
+        {
+            return -1;
+        }
+
+        // debug
+        printf("i2c read: ");
+        for (int i=0; i<ret; i++)
+        {
+            printf("%#x ", ready_byte[i]);
+        }
+        printf("\n");
+
+        return ready_byte[0];
     }
 
     virtual void write_bytes(const uint8_t* data, int len) override
@@ -62,6 +90,12 @@ struct pn532_backend_i2c_t : public pn532_backend_t
                 ret, len
             );
         }
+        else
+        {
+            printf("i2c wrote %i bytes, wait for ready byte...\n", ret);
+            sleep_ms(10);
+            wait_for_ready_byte();
+        }
     }
 
 private:
@@ -77,12 +111,12 @@ private:
             int ret = i2c_read_blocking(
                 i2c_, PN532_I2C_ADDRESS, 
                 &ready_byte, 1, 
-                true // no STOP is true
+                false // no STOP if true
             );
             if (ret != sizeof(ready_byte))
             {
                 printf("Error reading i2c\n");
-                sleep_ms(10);
+                sleep_ms(100);
             }
             else
             {
