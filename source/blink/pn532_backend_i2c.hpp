@@ -5,6 +5,7 @@
 #include <hardware/i2c.h>
 #include <pico/stdlib.h>
 
+#include <deque>
 #include <stdio.h>
 
 #define PN532_I2C_ADDRESS 0x24
@@ -43,35 +44,44 @@ struct pn532_backend_i2c_t : public pn532_backend_t
 
     virtual int16_t read_byte(unsigned int timeout_msec) override
     {
-        //if (uart_is_readable_within_us(i2c_, timeout_msec * 1000))
-        //{
-        //    //return uart_getc(uart_);
-        //    uint8_t c = uart_getc(i2c_);
-        //    //printf("read_byte: %#x \n", c);
-        //    return c;
-        //}
-        // TODO non-blocking !
-        //wait_for_ready_byte();
-        uint8_t ready_byte[10];
-        int ret = i2c_read_blocking(
-            i2c_, PN532_I2C_ADDRESS, 
-            ready_byte, 10, 
-            false // no STOP is true
-        );
-        if (ret < 0)
+        if (buffer_.size() == 0)
         {
-            return -1;
+            // TODO non-blocking !
+            //wait_for_ready_byte();
+            uint8_t ready_byte[30];
+            int ret = i2c_read_blocking(
+                i2c_, PN532_I2C_ADDRESS, 
+                ready_byte, 30, 
+                false // no STOP is true
+            );
+            if (ret < 0)
+            {
+                return -1;
+            }
+            if (ready_byte[0] != 1)
+            {
+                return -1;
+            }
+            // pop ready byte
+            //buffer_.pop_front();
+            for (int i=1; i<30; i++)
+            {
+                buffer_.push_back(ready_byte[i]);
+            }
+
+            // debug
+            printf("i2c read: ");
+            for (int i=0; i<ret; i++)
+            {
+                printf("%#x ", ready_byte[i]);
+            }
+            printf("\n");
         }
 
-        // debug
-        printf("i2c read: ");
-        for (int i=0; i<ret; i++)
-        {
-            printf("%#x ", ready_byte[i]);
-        }
-        printf("\n");
-
-        return ready_byte[0];
+        //return ready_byte[0];
+        auto b = buffer_.front();
+        buffer_.pop_front();
+        return b;
     }
 
     virtual void write_bytes(const uint8_t* data, int len) override
@@ -102,6 +112,8 @@ private:
     i2c_inst_t *i2c_;
     int scl_;
     int sda_;
+
+    std::deque<uint8_t> buffer_;
 
     void wait_for_ready_byte()
     {

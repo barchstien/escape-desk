@@ -295,6 +295,7 @@ std::vector<uint8_t> pn532_t::read_frame()
     c = backend_->read_byte(READ_TIMEOUT_MSEC);
     while (c >= 0)
     {
+        //printf("read process %#x \n", c);
         frame.push_back(c);
         //printf("read post: %#x\n", frame.back());
         if (frame.size() == 2)
