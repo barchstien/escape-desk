@@ -7,10 +7,11 @@
 
 #include <stdio.h>
 
-#define BAUD_RATE 115200
 
 struct pn532_backend_uart_t : public pn532_backend_t
 {
+    static constexpr unsigned int BAUD_RATE = 115200;
+    
     virtual void init(int uart_num, int rx_pin, int tx_pin) override
     {
         uart_ = uart_get_instance(uart_num);

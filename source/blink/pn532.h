@@ -9,9 +9,6 @@
 //#include <sstream>
 #include <vector>
 
-//#include <hardware/uart.h>
-#include <hardware/i2c.h>
-
 #include "pn532_backend.h"
 
 
@@ -63,9 +60,17 @@ static inline void hexdump(std::deque<uint8_t>& data)
  */
 struct pn532_t
 {
-    //
-    pn532_t(int uart_num, int rx_pin, int tx_pin);
-    pn532_t(i2c_inst_t* i2c, int scl, int sda);
+    typedef enum {
+        uart, i2c
+    } backend;
+    
+    /**
+     * @param dev_num uart/i2c bus number
+     * @param p1 uart RX or i2c SCL
+     * @param p2 uart TX oe i2c SDA
+     * @param ba backend enum uart/i2c
+     */
+    pn532_t(int dev_num, int p1, int p2, backend be);
 
     uint32_t version();
 

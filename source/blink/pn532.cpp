@@ -10,7 +10,7 @@
 //#include <pico/malloc.h>
 #include <pico/stdlib.h>
 
-//#include "pn532_backend_i2c.hpp"
+#include "pn532_backend_i2c.hpp"
 #include "pn532_backend_uart.hpp"
 
 
@@ -34,11 +34,22 @@
 #define WRITE_PREAMBLE_LEN 10//20
 
 
-pn532_t::pn532_t(int uart_num, int rx_pin, int tx_pin)
-    //: uart_(u), rx_pin_(rx_pin), tx_pin_(tx_pin)
+pn532_t::pn532_t(int dev_num, int p1, int p2, backend be)
 {
-    backend_ = std::make_shared<pn532_backend_uart_t>();
-    backend_->init(uart_num, rx_pin, tx_pin);
+    if (be == pn532_t::uart)
+    {
+        backend_ = std::make_shared<pn532_backend_uart_t>();
+    }
+    else if (be == pn532_t::i2c)
+    {
+        backend_ = std::make_shared<pn532_backend_i2c_t>();
+    }
+    else
+    {
+        printf("pn532, wrong backend type: %i", be);
+        exit(51);
+    }
+    backend_->init(dev_num, p1, p2);
     
     //wakeup();
     //sleep_ms(10);
@@ -85,7 +96,7 @@ pn532_t::pn532_t(int uart_num, int rx_pin, int tx_pin)
         }
         else
         {
-            printf("PN532 initialized\n----------\n");
+            printf("PN532 initialized\n");
         }
     }
 
@@ -113,11 +124,6 @@ pn532_t::pn532_t(int uart_num, int rx_pin, int tx_pin)
     cfg_reg = read_reg(CIU_CWGsP);
     printf("----------\n");
 #endif
-}
-
-pn532_t::pn532_t(i2c_inst_t* inst, int scl, int sda)
-{
-    //
 }
 
 uint32_t pn532_t::version()
