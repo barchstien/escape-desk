@@ -31,7 +31,7 @@
 #define CIU_CWGsP       0x6318
 
 #define READ_TIMEOUT_MSEC 20
-#define WRITE_PREAMBLE_LEN 10//20
+#define WRITE_PREAMBLE_LEN 5//10//20
 
 
 pn532_t::pn532_t(int dev_num, int p1, int p2, backend be)

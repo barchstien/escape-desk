@@ -13,7 +13,7 @@
 
 struct pn532_backend_i2c_t : public pn532_backend_t
 {
-    static constexpr unsigned int BAUD_RATE = 100000;
+    static constexpr unsigned int BAUD_RATE = 4e5;
 
     virtual void init(int i2c_num, int scl, int sda) override
     {
@@ -34,6 +34,10 @@ struct pn532_backend_i2c_t : public pn532_backend_t
     {
         if (buffer_.size() == 0)
         {
+            if (false == wait_for_ready_byte(timeout_msec))
+            {
+                return -1;
+            }
             uint8_t read_buff[I2C_READ_LEN];
             memset(read_buff, 0, I2C_READ_LEN);
             int ret = i2c_read_timeout_us(
@@ -95,7 +99,7 @@ struct pn532_backend_i2c_t : public pn532_backend_t
             }
             printf("\n");
 
-            sleep_ms(1);
+            //sleep_ms(1);
         }
     }
 
@@ -106,7 +110,11 @@ private:
 
     std::deque<uint8_t> buffer_;
 
-    void wait_for_ready_byte(unsigned int timeout_msec)
+    /**
+     * @return true if got ready byte
+     * @note works fine without... probably being lucky on timing so keep using !
+     */
+    bool wait_for_ready_byte(unsigned int timeout_msec)
     {
         uint8_t ready_byte;
         int ret = i2c_read_timeout_us(
@@ -118,12 +126,17 @@ private:
         if (ret != sizeof(ready_byte))
         {
             printf("Error reading i2c\n");
-            sleep_ms(100);
+            //sleep_ms(100);
+            return false;
+        }
+        else if (ready_byte != 1)
+        {
+            return false;
         }
         else
         {
             printf("Got ready byte %i\n", ready_byte);
-            return;
+            return true;
         }
     }
 };
