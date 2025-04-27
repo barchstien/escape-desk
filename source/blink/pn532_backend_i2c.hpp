@@ -61,15 +61,13 @@ struct pn532_backend_i2c_t : public pn532_backend_t
             }
 
             // debug
-            printf("i2c read: ");
-            for (int i=0; i<ret; i++)
-            {
-                printf("%#x ", read_buff[i]);
-            }
-            printf("\n");
+            //printf("i2c read: ");
+            //for (int i=0; i<ret; i++)
+            //{
+            //    printf("%#x ", read_buff[i]);
+            //}
+            //printf("\n");
         }
-
-        //return ready_byte[0];
         auto b = buffer_.front();
         buffer_.pop_front();
         return b;
@@ -90,16 +88,15 @@ struct pn532_backend_i2c_t : public pn532_backend_t
         }
         else
         {
-            printf("i2c wrote %i bytes", ret);// \n
+            printf("i2c wrote %i bytes \n", ret);
             
             // debug
-            for (int i=0; i<len; i++)
-            {
-                printf("%#x ", data[i]);
-            }
-            printf("\n");
-
-            //sleep_ms(1);
+            //printf("i2c wrote %i bytes: ", ret);
+            //for (int i=0; i<len; i++)
+            //{
+            //    printf("%#x ", data[i]);
+            //}
+            //printf("\n");
         }
     }
 
@@ -117,26 +114,34 @@ private:
     bool wait_for_ready_byte(unsigned int timeout_msec)
     {
         uint8_t ready_byte;
-        int ret = i2c_read_timeout_us(
-            i2c_, PN532_I2C_ADDRESS, 
-            &ready_byte, 1, 
-            false, // no STOP if true
-            timeout_msec * 1e3
-        );
-        if (ret != sizeof(ready_byte))
+        absolute_time_t start_time = get_absolute_time();
+        absolute_time_t now = get_absolute_time();
+        while (absolute_time_diff_us(now, start_time) < timeout_msec * 1e3)
         {
-            printf("Error reading i2c\n");
-            //sleep_ms(100);
-            return false;
+            int ret = i2c_read_timeout_us(
+                i2c_, PN532_I2C_ADDRESS, 
+                &ready_byte, 1, 
+                false, // no STOP if true
+                timeout_msec * 1e3
+            );
+            if (ret != sizeof(ready_byte))
+            {
+                printf("Error reading i2c\n");
+                sleep_us(100);
+                //return false;
+            }
+            else if (ready_byte != 1)
+            {
+                sleep_us(100);
+                //return false;
+            }
+            else
+            {
+                printf("Got ready byte %i\n", ready_byte);
+                return true;
+            }
+            now = get_absolute_time();
         }
-        else if (ready_byte != 1)
-        {
-            return false;
-        }
-        else
-        {
-            printf("Got ready byte %i\n", ready_byte);
-            return true;
-        }
+        return false;
     }
 };
