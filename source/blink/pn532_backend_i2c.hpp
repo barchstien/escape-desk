@@ -9,6 +9,7 @@
 #include <stdio.h>
 
 #define PN532_I2C_ADDRESS 0x24
+#define I2C_READ_LEN 20
 
 struct pn532_backend_i2c_t : public pn532_backend_t
 {
@@ -27,53 +28,39 @@ struct pn532_backend_i2c_t : public pn532_backend_t
         gpio_pull_up(sda_);
 
         sleep_ms(100);
-
-        // debug
-        //uint8_t data;
-        //printf("test....\n");
-        //int ret = i2c_read_blocking(i2c_, PN532_I2C_ADDRESS, &data, 1, false);
-        //printf(" - test read: %i\n", ret);
-        //ret = i2c_read_blocking(i2c_, PN532_I2C_ADDRESS, &data, 1, false);
-        //printf(" + test read: %i\n", ret);
-
-        //bool enabled = uart_is_enabled(i2c_);
-        //printf("UART %i is enabled: %u\n", i2c_num, enabled);
-
-        //wakeup();
     }
 
     virtual int16_t read_byte(unsigned int timeout_msec) override
     {
         if (buffer_.size() == 0)
         {
-            // TODO non-blocking !
-            //wait_for_ready_byte();
-            uint8_t ready_byte[30];
-            int ret = i2c_read_blocking(
+            uint8_t read_buff[I2C_READ_LEN];
+            memset(read_buff, 0, I2C_READ_LEN);
+            int ret = i2c_read_timeout_us(
                 i2c_, PN532_I2C_ADDRESS, 
-                ready_byte, 30, 
-                false // no STOP is true
+                read_buff, I2C_READ_LEN, 
+                false, // no STOP is true
+                timeout_msec * 1e3
             );
             if (ret < 0)
             {
                 return -1;
             }
-            if (ready_byte[0] != 1)
+            if (read_buff[0] != 1)
             {
                 return -1;
             }
-            // pop ready byte
-            //buffer_.pop_front();
-            for (int i=1; i<30; i++)
+            // skip ready byte
+            for (int i=1; i<I2C_READ_LEN; i++)
             {
-                buffer_.push_back(ready_byte[i]);
+                buffer_.push_back(read_buff[i]);
             }
 
             // debug
             printf("i2c read: ");
             for (int i=0; i<ret; i++)
             {
-                printf("%#x ", ready_byte[i]);
+                printf("%#x ", read_buff[i]);
             }
             printf("\n");
         }
@@ -86,9 +73,6 @@ struct pn532_backend_i2c_t : public pn532_backend_t
 
     virtual void write_bytes(const uint8_t* data, int len) override
     {
-        //
-        //uart_write_blocking(i2c_, data, len);
-        //uart_tx_wait_blocking(i2c_);
         int ret = i2c_write_blocking(
             i2c_, PN532_I2C_ADDRESS, 
             data, len, 
@@ -102,9 +86,16 @@ struct pn532_backend_i2c_t : public pn532_backend_t
         }
         else
         {
-            printf("i2c wrote %i bytes, wait for ready byte...\n", ret);
-            sleep_ms(10);
-            wait_for_ready_byte();
+            printf("i2c wrote %i bytes", ret);// \n
+            
+            // debug
+            for (int i=0; i<len; i++)
+            {
+                printf("%#x ", data[i]);
+            }
+            printf("\n");
+
+            sleep_ms(1);
         }
     }
 
@@ -115,26 +106,24 @@ private:
 
     std::deque<uint8_t> buffer_;
 
-    void wait_for_ready_byte()
+    void wait_for_ready_byte(unsigned int timeout_msec)
     {
-        while (true)
+        uint8_t ready_byte;
+        int ret = i2c_read_timeout_us(
+            i2c_, PN532_I2C_ADDRESS, 
+            &ready_byte, 1, 
+            false, // no STOP if true
+            timeout_msec * 1e3
+        );
+        if (ret != sizeof(ready_byte))
         {
-            uint8_t ready_byte;
-            int ret = i2c_read_blocking(
-                i2c_, PN532_I2C_ADDRESS, 
-                &ready_byte, 1, 
-                false // no STOP if true
-            );
-            if (ret != sizeof(ready_byte))
-            {
-                printf("Error reading i2c\n");
-                sleep_ms(100);
-            }
-            else
-            {
-                printf("Got ready byte %i\n", ready_byte);
-                return;
-            }
+            printf("Error reading i2c\n");
+            sleep_ms(100);
+        }
+        else
+        {
+            printf("Got ready byte %i\n", ready_byte);
+            return;
         }
     }
 };

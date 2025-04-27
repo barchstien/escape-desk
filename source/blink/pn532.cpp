@@ -307,6 +307,7 @@ std::vector<uint8_t> pn532_t::read_frame()
             )
             {
                 // ACK/NACK
+                printf("-- ACK/NACK\n");
                 return std::vector<uint8_t>(frame.begin(), frame.end());
             }
             // got LEN and its checksum
