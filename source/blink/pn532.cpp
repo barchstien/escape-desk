@@ -284,7 +284,6 @@ std::vector<uint8_t> pn532_t::read_frame()
     // read until getting expected start sequence 
     int16_t c = backend_->read_byte(READ_TIMEOUT_MSEC);
     while (c >= 0)
-    //while (uart_is_readable_within_us(uart_, READ_TIMEOUT_MSEC))
     {
         frame.push_back(c);
         if (frame.size() == 2)

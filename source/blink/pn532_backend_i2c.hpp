@@ -116,7 +116,7 @@ private:
         uint8_t ready_byte;
         absolute_time_t start_time = get_absolute_time();
         absolute_time_t now = get_absolute_time();
-        while (absolute_time_diff_us(now, start_time) < timeout_msec * 1e3)
+        while (absolute_time_diff_us(start_time, now) < timeout_msec * 1e3)
         {
             int ret = i2c_read_timeout_us(
                 i2c_, PN532_I2C_ADDRESS, 
@@ -141,6 +141,7 @@ private:
                 return true;
             }
             now = get_absolute_time();
+            //printf("abs diff: %lli  now: %llu\n", absolute_time_diff_us(now, start_time), now);
         }
         return false;
     }
