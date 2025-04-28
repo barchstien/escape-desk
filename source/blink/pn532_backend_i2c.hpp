@@ -88,7 +88,7 @@ struct pn532_backend_i2c_t : public pn532_backend_t
         }
         else
         {
-            printf("i2c wrote %i bytes \n", ret);
+            //printf("i2c wrote %i bytes \n", ret);
             
             // debug
             //printf("i2c wrote %i bytes: ", ret);
@@ -126,7 +126,7 @@ private:
             );
             if (ret != sizeof(ready_byte))
             {
-                printf("Error reading i2c\n");
+                //printf("Error reading i2c\n");
                 sleep_us(100);
                 //return false;
             }
@@ -137,7 +137,7 @@ private:
             }
             else
             {
-                printf("Got ready byte %i\n", ready_byte);
+                //printf("Got ready byte %i\n", ready_byte);
                 return true;
             }
             now = get_absolute_time();

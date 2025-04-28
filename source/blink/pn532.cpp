@@ -31,18 +31,25 @@
 #define CIU_CWGsP       0x6318
 
 #define READ_TIMEOUT_MSEC 20
-#define WRITE_PREAMBLE_LEN 5//10//20
+#define WRITE_PREAMBLE_LEN 10//20
 
 
 pn532_t::pn532_t(int dev_num, int p1, int p2, backend be)
+ : tag_cnt_(0), name_("")
 {
     if (be == pn532_t::uart)
     {
         backend_ = std::make_shared<pn532_backend_uart_t>();
+        char buf[25];
+        snprintf(buf, 25, "uart:%i rx:%i tx:%i", dev_num, p1, p2);
+        name_ = buf;
     }
     else if (be == pn532_t::i2c)
     {
         backend_ = std::make_shared<pn532_backend_i2c_t>();
+        char buf[25];
+        snprintf(buf, 25, "i2c:%i scl:%i sda:%i", dev_num, p1, p2);
+        name_ = buf;
     }
     else
     {
@@ -51,18 +58,11 @@ pn532_t::pn532_t(int dev_num, int p1, int p2, backend be)
     }
     backend_->init(dev_num, p1, p2);
     
-    //wakeup();
-    //sleep_ms(10);
-
     // SAM config to normal mode
     const uint8_t samcfg[] = {SAM_CONFIG, 0x01, 0x14 /* 1sec */, 0x00};
     write_frame(samcfg, sizeof(samcfg), WRITE_PREAMBLE_LEN);
-    //sleep_ms(10);
 
     auto frame = read_frame();
-    //printf("got frame: ");
-    //hexdump(frame);
-    //printf("\n");
     if (pn532_t::is_ack(frame))
     {
         printf("SAM Config ACK\n");
@@ -164,7 +164,7 @@ uint32_t pn532_t::version()
     return data[1] << 24 | data[2] << 16 | data[3] << 8 | data[4];
 }
 
-void pn532_t::loop_for_tag()
+void pn532_t::rewind()
 {
     unsigned int cnt = 0;
     // TODO allow to return result
@@ -178,38 +178,61 @@ void pn532_t::loop_for_tag()
         //, 0x1f, 0x49, 0x5e, 0x1e //< To detect a known tag
     };
     write_frame(get_tag_cmd, sizeof(get_tag_cmd), 1);
-    while (true)
+    // ACK
+    auto frame = read_frame();
+    if (pn532_t::is_ack(frame))
     {
-        auto frame = read_frame();
-        if (pn532_t::is_nack(frame))
-        {
-            printf("%%%% got NACK !!!!\n");
-            sleep_ms(1000);
-        }
-        else if (pn532_t::is_ack(frame))
-        {
-            //printf("%%%% got ACK !!!!\n");
-        }
-        else if (frame.size() == 0)
-        {
-            // nothing
-            //printf(".");
-        }
-        // starting from here, frame is considered well formed
-        else if (frame[0] == IN_LIST_PASSIVE_TARGET + 1)
-        {
-            // re-arm
-            write_frame(get_tag_cmd, sizeof(get_tag_cmd), 1);
-            std::vector<uint8_t> id = std::vector<uint8_t>(
-                frame.begin() + frame.size() - 4,
-                frame.end()
-            );
-            printf("%3i got ID: ", cnt);
-            hexdump(id);
-            printf("\n");
-            cnt++;
-        }
+        //printf("rewind() ACK\n");
     }
+    else if (pn532_t::is_ack(frame))
+    {
+        printf("rewind() NACK.....\n");
+    }
+    else if (frame.size() == 0)
+    {
+        printf("rewind() ACK time out\n");
+    }
+    else
+    {
+        printf("rewind read wait fr ACK but get: ");
+        hexdump(frame);
+        printf("\n");
+    }
+}
+
+uint32_t pn532_t::get_tag()
+{
+    auto frame = read_frame();
+    if (pn532_t::is_nack(frame))
+    {
+        printf("%%%% got NACK !!!!\n");
+        sleep_ms(10);
+    }
+    else if (pn532_t::is_ack(frame))
+    {
+        //printf("%%%% got ACK !!!!\n");
+    }
+    else if (frame.size() == 0)
+    {
+        // nothing
+        //printf(".");
+    }
+    // starting from here, frame is considered well formed
+    else if (frame[0] == IN_LIST_PASSIVE_TARGET + 1)
+    {
+        rewind();
+        std::vector<uint8_t> id = std::vector<uint8_t>(
+            frame.begin() + frame.size() - 4,
+            frame.end()
+        );
+        printf("%3i got ID: ", tag_cnt_++);
+        hexdump(id);
+        printf("\n");
+        uint32_t ret = 0;
+        memcpy(&ret, &frame[frame.size() - 4], 4);
+        return ret;
+    }
+    return 0;
 }
 
 
@@ -307,7 +330,7 @@ std::vector<uint8_t> pn532_t::read_frame()
             )
             {
                 // ACK/NACK
-                printf("-- ACK/NACK\n");
+                //printf("-- ACK/NACK\n");
                 return std::vector<uint8_t>(frame.begin(), frame.end());
             }
             // got LEN and its checksum

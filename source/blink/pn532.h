@@ -73,8 +73,20 @@ struct pn532_t
     pn532_t(int dev_num, int p1, int p2, backend be);
 
     uint32_t version();
+    const std::string name() const { return name_; }
 
-    void loop_for_tag();
+    /**
+     * Setup PN532 to look for passive target
+     * Meaning it will write to UART if found any
+     * @warning need to rewind() after each finding
+     */
+    void rewind();
+
+    /**
+     * @return tag or 0 if nothing
+     * @warning need to rewind if actually found a tag
+     */
+    uint32_t get_tag();
     
     /** Write a frame command/data */
     void write_frame(const uint8_t* data, int len, int preamble_len);
@@ -98,6 +110,8 @@ protected:
 
     std::shared_ptr<pn532_backend_t> backend_;
 
+    uint32_t tag_cnt_;
+    std::string name_;
 };
 
 #endif // PN532_H
