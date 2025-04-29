@@ -38,7 +38,7 @@ pico_sdk_init()
 add_executable(escape-desk
     main.cpp
     pn532.cpp
-    )
+)
 
 # pull in common dependencies
 target_link_libraries(escape-desk 
