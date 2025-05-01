@@ -69,8 +69,9 @@ struct pn532_t
      * @param p1 uart RX or i2c SCL
      * @param p2 uart TX oe i2c SDA
      * @param ba backend enum uart/i2c
+     * @param tag target tag id
      */
-    pn532_t(int dev_num, int p1, int p2, backend be);
+    pn532_t(int dev_num, int p1, int p2, backend be, uint32_t tag);
 
     uint32_t version();
     const std::string name() const { return name_; }
@@ -87,6 +88,15 @@ struct pn532_t
      * @warning need to rewind if actually found a tag
      */
     uint32_t get_tag();
+
+    /**
+     * @return true if target tag is in range
+     * @warning need to rewind if actually is in range
+     */
+    bool has_target_tag()
+    {
+        return get_tag() == target_tag_;
+    }
     
     /** Write a frame command/data */
     void write_frame(const uint8_t* data, int len, int preamble_len);
@@ -110,8 +120,15 @@ protected:
 
     std::shared_ptr<pn532_backend_t> backend_;
 
+    /** Number of tags hit */
     uint32_t tag_cnt_;
+
     std::string name_;
+
+    /**
+     * Chevron locked as long as this tag is in range
+     */
+    uint32_t target_tag_;
 };
 
 #endif // PN532_H

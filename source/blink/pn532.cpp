@@ -34,8 +34,8 @@
 #define WRITE_PREAMBLE_LEN 10//20
 
 
-pn532_t::pn532_t(int dev_num, int p1, int p2, backend be)
- : tag_cnt_(0), name_("")
+pn532_t::pn532_t(int dev_num, int p1, int p2, backend be, uint32_t tag)
+ : tag_cnt_(0), target_tag_(tag), name_("")
 {
     if (be == pn532_t::uart)
     {
@@ -225,11 +225,11 @@ uint32_t pn532_t::get_tag()
             frame.begin() + frame.size() - 4,
             frame.end()
         );
-        printf("%3i got ID: ", tag_cnt_++);
-        hexdump(id);
-        printf("\n");
         uint32_t ret = 0;
         memcpy(&ret, &frame[frame.size() - 4], 4);
+        //printf("%3i %s got ID: %#x  -- target: %#x \n", 
+        //    tag_cnt_++, name_.c_str(), ret, target_tag_);
+        rewind();
         return ret;
     }
     return 0;
