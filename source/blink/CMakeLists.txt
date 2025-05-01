@@ -43,7 +43,7 @@ add_executable(escape-desk
 # pull in common dependencies
 target_link_libraries(escape-desk 
     pico_stdlib 
-    hardware_pwm 
+    hardware_pwm
     hardware_uart
     hardware_i2c
 )

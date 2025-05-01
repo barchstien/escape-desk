@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <pico/stdlib.h>
 
+#include <hardware/pwm.h>
+
 #include "pn532.h"
 
 #define PN532_UART_1_TX_PIN 4
@@ -18,6 +20,8 @@
 #define LED_PIN_LOCK_0 0
 #define LED_PIN_LOCK_1 1
 #define LED_PIN_LOCK_2 2
+
+const uint BUZZER_PIN = 22;
 
 int main() 
 {
@@ -63,6 +67,7 @@ int main()
         nfc_read_list.back().version());
 #endif
     
+    // LEDs
     int LED_PIN_LOCK[] = {
         LED_PIN_LOCK_0, LED_PIN_LOCK_1, LED_PIN_LOCK_2
     };
@@ -74,6 +79,22 @@ int main()
         sleep_ms(1000);
         gpio_put(LED_PIN_LOCK[i], 0);
     }
+
+    // Buzzer
+    gpio_set_function(BUZZER_PIN, GPIO_FUNC_PWM);
+    uint slice_num = pwm_gpio_to_slice_num(BUZZER_PIN);
+    pwm_config config = pwm_get_default_config();
+    float divider = 100.0f;
+    pwm_config_set_clkdiv(&config, divider);
+    uint16_t wrap_value = 1249;
+    pwm_config_set_wrap(&config, wrap_value);
+    pwm_init(slice_num, &config, true);
+    //
+    uint16_t level = wrap_value / 10;
+    //pwm_set_gpio_level(BUZZER_PIN, level);
+    //sleep_ms(1000);
+    //pwm_set_gpio_level(BUZZER_PIN, 0);
+
 
     sleep_ms(1000);
 
@@ -102,6 +123,14 @@ int main()
                 gpio_put(LED_PIN_LOCK[cnt], 0);
             }
             cnt++;
+        }
+        if (nfc_lock[0] && nfc_lock[1] && nfc_lock[2])
+        {
+            pwm_set_gpio_level(BUZZER_PIN, level);
+        }
+        else
+        {
+            pwm_set_gpio_level(BUZZER_PIN, 0);
         }
 
         sleep_ms(100);
