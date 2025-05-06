@@ -6,27 +6,9 @@
 #include <memory>
 #include <stdint.h>
 #include <stdbool.h>
-//#include <sstream>
 #include <vector>
 
 #include "pn532_backend.h"
-
-
-static inline void hexdump(std::vector<uint8_t>& data)
-{
-    for (int i=0; i<data.size(); i++)
-    {
-        printf("%#x ", data[i]);
-    }
-}
-
-static inline void hexdump(std::deque<uint8_t>& data)
-{
-    for (int i=0; i<data.size(); i++)
-    {
-        printf("%#x ", data[i]);
-    }
-}
 
 /**
  * Command and control PN532
@@ -118,6 +100,10 @@ protected:
     uint8_t read_reg(uint16_t reg);
     void write_reg(uint16_t reg, uint8_t value);
 
+    /**
+     * i2c or uart are the 2 backend possible
+     * pico has 2 uart and 2 i2c bus
+     */
     std::shared_ptr<pn532_backend_t> backend_;
 
     /** Number of tags hit */

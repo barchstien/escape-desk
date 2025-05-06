@@ -88,6 +88,7 @@ struct pn532_backend_i2c_t : public pn532_backend_t
         }
         else
         {
+            // Write success
             //printf("i2c wrote %i bytes \n", ret);
             
             // debug
@@ -126,14 +127,11 @@ private:
             );
             if (ret != sizeof(ready_byte))
             {
-                //printf("Error reading i2c\n");
                 sleep_us(100);
-                //return false;
             }
             else if (ready_byte != 1)
             {
                 sleep_us(100);
-                //return false;
             }
             else
             {

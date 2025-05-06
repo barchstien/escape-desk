@@ -1,18 +1,31 @@
 #include "pn532.h"
 
 #include <deque>
-//#include <memory>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <vector>
 
-//#include <pico/malloc.h>
 #include <pico/stdlib.h>
 
 #include "pn532_backend_i2c.hpp"
 #include "pn532_backend_uart.hpp"
 
+static inline void hexdump(std::vector<uint8_t>& data)
+{
+    for (int i=0; i<data.size(); i++)
+    {
+        printf("%#x ", data[i]);
+    }
+}
+
+static inline void hexdump(std::deque<uint8_t>& data)
+{
+    for (int i=0; i<data.size(); i++)
+    {
+        printf("%#x ", data[i]);
+    }
+}
 
 #define GET_FW_VERSION      0x02
 #define GET_FW_ANSWER_LEN   5
@@ -31,7 +44,7 @@
 #define CIU_CWGsP       0x6318
 
 #define READ_TIMEOUT_MSEC 20
-#define WRITE_PREAMBLE_LEN 10//20
+#define WRITE_PREAMBLE_LEN 10
 
 
 pn532_t::pn532_t(int dev_num, int p1, int p2, backend be, uint32_t tag)
@@ -88,8 +101,6 @@ pn532_t::pn532_t(int dev_num, int p1, int p2, backend be, uint32_t tag)
     }
     else
     {
-        //hexdump(data);
-        //printf("\n");
         if (data[0] != SAM_CONFIG + 1)
         {
             printf("SAM config failed... got %#x\n", data[0]);
@@ -194,7 +205,7 @@ void pn532_t::rewind()
     }
     else
     {
-        printf("rewind read wait fr ACK but get: ");
+        printf("rewind read wait for ACK but get: ");
         hexdump(frame);
         printf("\n");
     }
@@ -214,8 +225,7 @@ uint32_t pn532_t::get_tag()
     }
     else if (frame.size() == 0)
     {
-        // nothing
-        //printf(".");
+        // nothing to read
     }
     // starting from here, frame is considered well formed
     else if (frame[0] == IN_LIST_PASSIVE_TARGET + 1)
@@ -272,8 +282,6 @@ void pn532_t::write_frame(const uint8_t* data, int len, int preamble_len)
     printf("\nlen: %i\n", i);
 #endif
     backend_->write_bytes(frame, i);
-    //uart_write_blocking(uart_, frame, i);
-    //uart_tx_wait_blocking(uart_);
     free(frame);
 }
 
@@ -329,7 +337,6 @@ std::vector<uint8_t> pn532_t::read_frame()
             )
             {
                 // ACK/NACK
-                //printf("-- ACK/NACK\n");
                 return std::vector<uint8_t>(frame.begin(), frame.end());
             }
             // got LEN and its checksum
