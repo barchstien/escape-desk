@@ -3,15 +3,14 @@
 
 #include <deque>
 #include <iomanip>
-//#include <memory>
+#include <memory>
 #include <stdint.h>
 #include <stdbool.h>
 //#include <sstream>
 #include <vector>
 
-#include "hardware/uart.h"
+#include "pn532_backend.h"
 
-//#define PN532_MIFARE_ISO14443A 0x00
 
 static inline void hexdump(std::vector<uint8_t>& data)
 {
@@ -28,17 +27,6 @@ static inline void hexdump(std::deque<uint8_t>& data)
         printf("%#x ", data[i]);
     }
 }
-
-#if 0
-typedef struct {
-    uart_inst_t *uart;
-} PN532;
-
-//void pn532_uart_init();
-uint32_t pn532_getFirmwareVersion(PN532 *dev);
-void pn532_SAMConfig(PN532 *dev);
-bool pn532_readPassiveTargetID(PN532 *dev, uint8_t cardbaudrate, uint8_t *uid, uint8_t *uidLength);
-#endif
 
 /**
  * Command and control PN532
@@ -64,17 +52,51 @@ bool pn532_readPassiveTargetID(PN532 *dev, uint8_t cardbaudrate, uint8_t *uid, u
  *     - TFI is 0xD5
  *     - TFI = request TFI + 1
  *  4. No need to ACK/NACK
+ * 
+ * HW
+ *  - uart_1, uart_0 doesn't work, probably coz it colides with usb/serial
+ *  - i2c 1 & 2, 400KHz
+ *    addr 0x24, ie 0x48 for write 0x49 for read
  */
 struct pn532_t
 {
-    //
-    pn532_t(uart_inst_t* u, int rx_pin, int tx_pin);
+    typedef enum {
+        uart, i2c
+    } backend;
+    
+    /**
+     * @param dev_num uart/i2c bus number
+     * @param p1 uart RX or i2c SCL
+     * @param p2 uart TX oe i2c SDA
+     * @param ba backend enum uart/i2c
+     * @param tag target tag id
+     */
+    pn532_t(int dev_num, int p1, int p2, backend be, uint32_t tag);
 
     uint32_t version();
+    const std::string name() const { return name_; }
 
-    void loop_for_tag();
+    /**
+     * Setup PN532 to look for passive target
+     * Meaning it will write to UART if found any
+     * @warning need to rewind() after each finding
+     */
+    void rewind();
 
-    void wakeup();
+    /**
+     * @return tag or 0 if nothing
+     * @warning need to rewind if actually found a tag
+     */
+    uint32_t get_tag();
+
+    /**
+     * @return true if target tag is in range
+     * @warning need to rewind if actually is in range
+     */
+    bool has_target_tag()
+    {
+        return get_tag() == target_tag_;
+    }
     
     /** Write a frame command/data */
     void write_frame(const uint8_t* data, int len, int preamble_len);
@@ -96,10 +118,17 @@ protected:
     uint8_t read_reg(uint16_t reg);
     void write_reg(uint16_t reg, uint8_t value);
 
-private:
-    uart_inst_t *uart_;
-    int rx_pin_;
-    int tx_pin_;
+    std::shared_ptr<pn532_backend_t> backend_;
+
+    /** Number of tags hit */
+    uint32_t tag_cnt_;
+
+    std::string name_;
+
+    /**
+     * Chevron locked as long as this tag is in range
+     */
+    uint32_t target_tag_;
 };
 
 #endif // PN532_H

@@ -7,8 +7,11 @@
 #include <string.h>
 #include <vector>
 
-//#include "pico/malloc.h"
-#include "pico/stdlib.h"
+//#include <pico/malloc.h>
+#include <pico/stdlib.h>
+
+#include "pn532_backend_i2c.hpp"
+#include "pn532_backend_uart.hpp"
 
 
 #define GET_FW_VERSION      0x02
@@ -27,55 +30,37 @@
 #define CIU_GsNOn0x     0x6317
 #define CIU_CWGsP       0x6318
 
-#define READ_TIMEOUT_USEC 20000
+#define READ_TIMEOUT_MSEC 20
 #define WRITE_PREAMBLE_LEN 10//20
 
-#define BAUD_RATE 115200
 
-#if 0
- 
-
-bool pn532_readPassiveTargetID(PN532 *dev, uint8_t cardbaudrate, uint8_t *uid, uint8_t *uidLength) {
-    uint8_t command[] = {0x4A, 0x01, cardbaudrate};
-    uint8_t response[8];
-
-    uart_write_blocking(dev->uart, command, sizeof(command));
-    sleep_ms(50);
-    uart_read_blocking(dev->uart, response, 8);  // Read response buffer
-    
-    if (response[0] != 1) return false;
-
-    *uidLength = response[1];
-    memcpy(uid, &response[2], *uidLength);
-    return true;
-}
-#endif
-
-pn532_t::pn532_t(uart_inst_t* u, int rx_pin, int tx_pin)
-    : uart_(u), rx_pin_(rx_pin), tx_pin_(tx_pin)
+pn532_t::pn532_t(int dev_num, int p1, int p2, backend be, uint32_t tag)
+ : tag_cnt_(0), target_tag_(tag), name_("")
 {
-    int b = uart_init(uart_, BAUD_RATE);
-    printf("UART set baud to %i \n", b);
-    uart_set_translate_crlf(uart_, false);
-    //gpio_set_function(PN532_UART_TX_PIN, GPIO_FUNC_UART);
-    gpio_set_function(tx_pin_, UART_FUNCSEL_NUM(uart_, tx_pin_));
-    //gpio_set_function(PN532_UART_RX_PIN, GPIO_FUNC_UART);
-    gpio_set_function(rx_pin_, UART_FUNCSEL_NUM(uart_, rx_pin_));
-
-    uart_set_hw_flow(uart_, false, false);
-    uart_set_format(uart_, 8, 1, UART_PARITY_NONE);
-    //uart_set_fifo_enabled(uart_, false);
-    sleep_ms(1);
-
-    bool enabled = uart_is_enabled(uart_);
-    printf("uart_is_enabled: %u\n", enabled);
-
-    wakeup();
+    if (be == pn532_t::uart)
+    {
+        backend_ = std::make_shared<pn532_backend_uart_t>();
+        char buf[25];
+        snprintf(buf, 25, "uart:%i rx:%i tx:%i", dev_num, p1, p2);
+        name_ = buf;
+    }
+    else if (be == pn532_t::i2c)
+    {
+        backend_ = std::make_shared<pn532_backend_i2c_t>();
+        char buf[25];
+        snprintf(buf, 25, "i2c:%i scl:%i sda:%i", dev_num, p1, p2);
+        name_ = buf;
+    }
+    else
+    {
+        printf("pn532, wrong backend type: %i", be);
+        exit(51);
+    }
+    backend_->init(dev_num, p1, p2);
     
     // SAM config to normal mode
     const uint8_t samcfg[] = {SAM_CONFIG, 0x01, 0x14 /* 1sec */, 0x00};
     write_frame(samcfg, sizeof(samcfg), WRITE_PREAMBLE_LEN);
-    sleep_ms(100);
 
     auto frame = read_frame();
     if (pn532_t::is_ack(frame))
@@ -104,14 +89,14 @@ pn532_t::pn532_t(uart_inst_t* u, int rx_pin, int tx_pin)
     else
     {
         //hexdump(data);
-        printf("\n");
+        //printf("\n");
         if (data[0] != SAM_CONFIG + 1)
         {
             printf("SAM config failed... got %#x\n", data[0]);
         }
         else
         {
-            printf("PN532 initialized over UART.\n");
+            printf("PN532 initialized\n");
         }
     }
 
@@ -179,7 +164,7 @@ uint32_t pn532_t::version()
     return data[1] << 24 | data[2] << 16 | data[3] << 8 | data[4];
 }
 
-void pn532_t::loop_for_tag()
+void pn532_t::rewind()
 {
     unsigned int cnt = 0;
     // TODO allow to return result
@@ -193,81 +178,63 @@ void pn532_t::loop_for_tag()
         //, 0x1f, 0x49, 0x5e, 0x1e //< To detect a known tag
     };
     write_frame(get_tag_cmd, sizeof(get_tag_cmd), 1);
-    while (true)
+    // ACK
+    auto frame = read_frame();
+    if (pn532_t::is_ack(frame))
     {
-        //write_frame(get_tag_cmd, sizeof(get_tag_cmd), 1);
-#if 0
-        // debug just dump what is read
-        int cnt = 0;
-        while (uart_is_readable_within_us(uart_, READ_TIMEOUT_USEC))
-        {
-            if (cnt % 10 == 0)
-            {
-                printf("\n%3d : ", cnt);
-            }
-            printf("%2x " , uart_getc(uart_));
-            cnt++;
-        }
-#endif
-
-        auto frame = read_frame();
-        if (pn532_t::is_nack(frame))
-        {
-            printf("%%%% got NACK !!!!\n");
-            sleep_ms(1000);
-        }
-        else if (pn532_t::is_ack(frame))
-        {
-            //printf("%%%% got ACK !!!!\n");
-        }
-        else if (frame.size() == 0)
-        {
-            // nothing
-            //printf(".");
-        }
-        // starting from here, frame is considered well formed
-        else if (frame[0] == IN_LIST_PASSIVE_TARGET + 1)
-        {
-            // re-arm
-            write_frame(get_tag_cmd, sizeof(get_tag_cmd), 1);
-            std::vector<uint8_t> id = std::vector<uint8_t>(
-                frame.begin() + frame.size() - 4,
-                frame.end()
-            );
-            printf("%3i got ID: ", cnt);
-            hexdump(id);
-            printf("\n");
-            cnt++;
-        }
-            
-        //if (read_ack() == true)
-        //{
-        //    auto answer = read_frame();
-        //    if (answer.size() > 0)
-        //    {
-        //        printf("Tag :: ");
-        //        hexdump(answer);
-        //        printf("\n");
-        //    }
-        //}
-        //else
-        //{
-        //    printf("no tag... wait\n");
-        //}
-        //printf("\n-----------------\n");
-        //sleep_ms(5000);
+        //printf("rewind() ACK\n");
+    }
+    else if (pn532_t::is_ack(frame))
+    {
+        printf("rewind() NACK.....\n");
+    }
+    else if (frame.size() == 0)
+    {
+        printf("rewind() ACK time out\n");
+    }
+    else
+    {
+        printf("rewind read wait fr ACK but get: ");
+        hexdump(frame);
+        printf("\n");
     }
 }
 
-void pn532_t::wakeup()
+uint32_t pn532_t::get_tag()
 {
-    const uint8_t wakeup_char = 0x55;
-    const int wakeup_len = 100;
-    uint8_t* wakeup_frame = (uint8_t*)malloc(wakeup_len);
-    memset(wakeup_frame, wakeup_len, wakeup_char);
-    uart_write_blocking(uart_, wakeup_frame, sizeof(wakeup_frame));
-    free(wakeup_frame);
+    auto frame = read_frame();
+    if (pn532_t::is_nack(frame))
+    {
+        printf("%%%% got NACK !!!!\n");
+        sleep_ms(10);
+    }
+    else if (pn532_t::is_ack(frame))
+    {
+        //printf("%%%% got ACK !!!!\n");
+    }
+    else if (frame.size() == 0)
+    {
+        // nothing
+        //printf(".");
+    }
+    // starting from here, frame is considered well formed
+    else if (frame[0] == IN_LIST_PASSIVE_TARGET + 1)
+    {
+        rewind();
+        std::vector<uint8_t> id = std::vector<uint8_t>(
+            frame.begin() + frame.size() - 4,
+            frame.end()
+        );
+        uint32_t ret = 0;
+        memcpy(&ret, &frame[frame.size() - 4], 4);
+        //printf("%3i %s got ID: %#x  -- target: %#x \n", 
+        //    tag_cnt_++, name_.c_str(), ret, target_tag_);
+        rewind();
+        return ret;
+    }
+    return 0;
 }
+
 
 void pn532_t::write_frame(const uint8_t* data, int len, int preamble_len)
 {
@@ -304,8 +271,9 @@ void pn532_t::write_frame(const uint8_t* data, int len, int preamble_len)
     }
     printf("\nlen: %i\n", i);
 #endif
-    uart_write_blocking(uart_, frame, i);
-    uart_tx_wait_blocking(uart_);
+    backend_->write_bytes(frame, i);
+    //uart_write_blocking(uart_, frame, i);
+    //uart_tx_wait_blocking(uart_);
     free(frame);
 }
 
@@ -314,20 +282,20 @@ std::vector<uint8_t> pn532_t::read_frame()
     std::deque<uint8_t> frame;
     
     // read until getting expected start sequence 
-    while (uart_is_readable_within_us(uart_, READ_TIMEOUT_USEC))
+    int16_t c = backend_->read_byte(READ_TIMEOUT_MSEC);
+    while (c >= 0)
     {
-        frame.push_back(uart_getc(uart_));
-        //printf("read pre: %#x\n", frame.back());
+        frame.push_back(c);
         if (frame.size() == 2)
         {
-            if (frame[0] != 0 || frame[1] != 0xff)
+            if (frame[0] == 0x00 && frame[1] == 0xff)
             {
-                // pass until we get start code 0x00 0xff
-                frame.pop_front();
-                continue;
+                break;
             }
-            break;
+            // pass until we get start code 0x00 0xff
+            frame.pop_front();
         }
+        c = backend_->read_byte(READ_TIMEOUT_MSEC);
     }
     if (frame.size() != 2)
     {
@@ -346,9 +314,11 @@ std::vector<uint8_t> pn532_t::read_frame()
     // ACK/NACK postamble is ignored. It will be consumed as next frame preamble
     int bytes_to_read = 4;
 
-    while (uart_is_readable_within_us(uart_, READ_TIMEOUT_USEC))
+    c = backend_->read_byte(READ_TIMEOUT_MSEC);
+    while (c >= 0)
     {
-        frame.push_back(uart_getc(uart_));
+        //printf("read process %#x \n", c);
+        frame.push_back(c);
         //printf("read post: %#x\n", frame.back());
         if (frame.size() == 2)
         {
@@ -359,6 +329,7 @@ std::vector<uint8_t> pn532_t::read_frame()
             )
             {
                 // ACK/NACK
+                //printf("-- ACK/NACK\n");
                 return std::vector<uint8_t>(frame.begin(), frame.end());
             }
             // got LEN and its checksum
@@ -375,6 +346,7 @@ std::vector<uint8_t> pn532_t::read_frame()
         {
             break;
         }
+        c = backend_->read_byte(READ_TIMEOUT_MSEC);
     }
 
     if (frame.size() != bytes_to_read)
