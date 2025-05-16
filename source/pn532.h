@@ -32,13 +32,13 @@
  *  2. get ACK/NACK
  *  3. get result
  *     - TFI is 0xD5
- *     - TFI = request TFI + 1
+ *     - commande byte (DATA[0]) = request command byte + 1
  *  4. No need to ACK/NACK
  * 
  * HW
- *  - uart_1, uart_0 doesn't work, probably coz it colides with usb/serial
+ *  - uart_1, uart_0
  *  - i2c 1 & 2, 400KHz
- *    addr 0x24, ie 0x48 for write 0x49 for read
+ *    addr 0x24 7 bit address, ie 0x48 for write 0x49 for read
  */
 struct pn532_t
 {
