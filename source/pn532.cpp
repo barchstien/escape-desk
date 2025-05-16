@@ -27,6 +27,17 @@ static inline void hexdump(std::deque<uint8_t>& data)
     }
 }
 
+static inline uint32_t byte_swap_32(uint32_t i)
+{
+    uint8_t* d = (uint8_t*)(&i);
+    uint32_t ret = 0;
+    ret += d[0] << 24;
+    ret += d[1] << 16;
+    ret += d[2] << 8;
+    ret += d[3] << 0;
+    return ret;
+}
+
 #define GET_FW_VERSION      0x02
 #define GET_FW_ANSWER_LEN   5
 #define SAM_CONFIG              0x14
@@ -246,9 +257,12 @@ uint32_t pn532_t::get_tag()
         // get uid
         uint32_t uid = 0;
         memcpy(&uid, &frame[frame.size() - uid_len], uid_len);
-        printf("%3i got ID: %#x \n", 
-            tag_cnt_++, uid);
+        uid = byte_swap_32(uid);
+        printf("%3i got ID: %#x \n", tag_cnt_++, uid);
 
+        // Read bytes to get text
+
+        //
         rewind();
         return uid;
     }
