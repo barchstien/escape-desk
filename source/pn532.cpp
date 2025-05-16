@@ -230,17 +230,27 @@ uint32_t pn532_t::get_tag()
     // starting from here, frame is considered well formed
     else if (frame[0] == IN_LIST_PASSIVE_TARGET + 1)
     {
-        rewind();
-        std::vector<uint8_t> id = std::vector<uint8_t>(
-            frame.begin() + frame.size() - 4,
-            frame.end()
+        //printf("Got %i bytes\n", frame.size());
+        int num_of_target = frame[1];
+        //printf("Found %i targets\n", frame[1]);
+        // expect :
+        // num: 1
+        // SENS_RES: 0x0 0x4 (ATQA)
+        // SEL_RES:  0x08 (SAK: 4 bytes UID)
+        // UID length: 4 bytes
+        // UID
+        printf("Target num: %i ATQA:%#x %#x SAK:%#x UID len:%i \n",
+            frame[2], frame[3], frame[4], frame[5], frame[6]
         );
-        uint32_t ret = 0;
-        memcpy(&ret, &frame[frame.size() - 4], 4);
-        //printf("%3i %s got ID: %#x  -- target: %#x \n", 
-        //    tag_cnt_++, name_.c_str(), ret, target_tag_);
+        int uid_len = frame[6];
+        // get uid
+        uint32_t uid = 0;
+        memcpy(&uid, &frame[frame.size() - uid_len], uid_len);
+        printf("%3i got ID: %#x \n", 
+            tag_cnt_++, uid);
+
         rewind();
-        return ret;
+        return uid;
     }
     return 0;
 }
