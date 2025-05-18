@@ -46,7 +46,7 @@ static const uint8_t ChatN_template[] = {
     0x03,   // NDEF start block
     0x0c,   // NDEF message size
     0xd1,   // Flags MB=1, ME=1, CF=0, SR=1, IL=0, TNF=001 (First, Last, Not Chunked, Short Record, No ID, Well-Known Type)
-    0x01,   // 1 byte styoe field
+    0x01,   // 1 byte type field
     0x08,   // 8 bytes payload
     0x54,   // 'T' (NFC Forum Well-Known Type: Text Record)
     0x02,   // Status Bit 7=0 (UTF-8), Bits 5-0 = 000010 (Language Code is 2 bytes long)
@@ -301,26 +301,23 @@ uint32_t pn532_t::get_tag()
         frame = read_frame();
         if (pn532_t::is_ack(frame))
         {
-            sleep_ms(10);
             frame = read_frame();
-            printf("Auth response len:%i - %#x (InDataExch + 1 = %#x) %#x (0:success 0x14:failure)\n", 
-                frame.size(), frame[0], IN_DATA_EXCHANGE + 1, frame[1]
-            );
-            if (frame[1] == 0)
+            //printf("Auth response len:%i - %#x (InDataExch + 1 = %#x) %#x (0:success 0x14:failure)\n", 
+            //    frame.size(), frame[0], IN_DATA_EXCHANGE + 1, frame[1]
+            //);
+            if (frame[1] == 0) // ie success
             {
                 // get block
                 const uint8_t data_exchange_auth[] = {
                     IN_DATA_EXCHANGE,
-                    0x01, // MaxTg [1; 2]
+                    0x01, // Tg [1; 2]
                     0x30, // Read block
-                    0x04 // block addr
+                    0x04  // block addr
                 };
                 write_frame(data_exchange_auth, sizeof(data_exchange_auth), 1);
                 frame = read_frame();
-                sleep_ms(10);
                 if (pn532_t::is_ack(frame))
                 {
-                    sleep_ms(10);
                     frame = read_frame();
                     //printf("Data block %#x: len: %i\n --> ", 0x04, frame.size());
                     if (frame.size() >= 18)
