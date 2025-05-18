@@ -5,17 +5,17 @@
 
 #include "pn532.h"
 
-#define PN532_UART_1_TX_PIN 4
-#define PN532_UART_1_RX_PIN 5
-#define PN532_UART_1_TARGET_TAG 0xef861e25
-
 #define PN532_UART_0_TX_PIN 16
 #define PN532_UART_0_RX_PIN 17
-#define PN532_UART_0_TARGET_TAG 0x1f495e1e
+#define PN532_UART_0_TARGET_TAG "chat1"
+
+#define PN532_UART_1_TX_PIN 4
+#define PN532_UART_1_RX_PIN 5
+#define PN532_UART_1_TARGET_TAG "chat2"
 
 #define PN532_I2C_1_SCL_PIN 27
 #define PN532_I2C_1_SDA_PIN 26
-#define PN532_I2C_1_TARGET_TAG 0xef77ca25
+#define PN532_I2C_1_TARGET_TAG "chat3"
 
 #define LED_PIN_LOCK_0 0
 #define LED_PIN_LOCK_1 1
@@ -113,7 +113,7 @@ int main()
         int cnt = 0;
         for (auto& nfc_r : nfc_read_list)
         {
-            nfc_lock[cnt] = nfc_r.has_target_tag();
+            nfc_lock[cnt] = nfc_r.key_in_tag();
             if (nfc_lock[cnt])
             {
                 gpio_put(LED_PIN_LOCK[cnt], 1);
@@ -133,7 +133,7 @@ int main()
             pwm_set_gpio_level(BUZZER_PIN, 0);
         }
 
-        sleep_ms(100);
+        sleep_ms(10);
     }
 
     return 0;

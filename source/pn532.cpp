@@ -81,8 +81,8 @@ static const uint8_t ChatN_template[] = {
 #define WRITE_PREAMBLE_LEN 10
 
 
-pn532_t::pn532_t(int dev_num, int p1, int p2, backend be, uint32_t tag)
- : tag_cnt_(0), target_tag_(tag), name_("")
+pn532_t::pn532_t(int dev_num, int p1, int p2, backend be, std::string key)
+ : tag_cnt_(0), key_(key), name_("")
 {
     if (be == pn532_t::uart)
     {
@@ -245,7 +245,7 @@ void pn532_t::rewind()
     }
 }
 
-uint32_t pn532_t::get_tag()
+bool pn532_t::key_in_tag()
 {
     auto frame = read_frame();
     if (pn532_t::is_nack(frame))
@@ -255,7 +255,7 @@ uint32_t pn532_t::get_tag()
     }
     else if (pn532_t::is_ack(frame))
     {
-        //printf("%%%% got ACK !!!!\n");
+        // shouldn't happen, ignore...
     }
     else if (frame.size() == 0)
     {
@@ -322,27 +322,20 @@ uint32_t pn532_t::get_tag()
                     //printf("Data block %#x: len: %i\n --> ", 0x04, frame.size());
                     if (frame.size() >= 18)
                     {
-                        //for (int i=0; i<16; i++)
-                        //{
-                        //    printf("%#x ", frame[2+i]);
-                        //}
-                        //printf("\n");
-                        if (memcmp(&(frame[2]), ChatN_template, sizeof(ChatN_template)) == 0)
+                        // Just look for string, bypass NDEF logic
+                        std::string::size_type pos = std::string(frame.begin(), frame.end()).find(key_);
+                        if (pos != std::string::npos)
                         {
-                            printf("MATCH TEST pattern !!!!!!!!!!!! \n");
+                            rewind();
+                            return true;
                         }
                     }
-                    //printf("----------------------------------\n");
                 }
             }
         }
-
-
-        //
         rewind();
-        return uid;
     }
-    return 0;
+    return false;
 }
 
 
