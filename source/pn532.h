@@ -59,19 +59,6 @@ struct pn532_t
     const std::string name() const { return name_; }
 
     /**
-     * Setup PN532 to look for passive target
-     * Meaning it will write to UART if found any
-     * @warning need to rewind() after each finding
-     */
-    void rewind();
-
-    /**
-     * @return tag or 0 if nothing
-     * @warning need to rewind if actually found a tag
-     */
-    uint32_t get_tag();
-
-    /**
      * @return true if target tag is in range
      * @warning need to rewind if actually is in range
      */
@@ -79,7 +66,22 @@ struct pn532_t
     {
         return get_tag() == target_tag_;
     }
-    
+
+    /**
+     * Setup PN532 to look for passive target
+     * Meaning it will write to UART if found any
+     * @warning need to rewind() after each finding
+     */
+    void rewind();
+
+protected:
+    /**
+     * @return tag or 0 if nothing
+     * @warning need to rewind if actually found a tag
+     */
+    uint32_t get_tag();
+
+        
     /** Write a frame command/data */
     void write_frame(const uint8_t* data, int len, int preamble_len);
     
@@ -96,7 +98,6 @@ struct pn532_t
     static bool is_ack(std::vector<uint8_t> frame);
     static bool is_nack(std::vector<uint8_t> frame);
 
-protected:
     uint8_t read_reg(uint16_t reg);
     void write_reg(uint16_t reg, uint8_t value);
 

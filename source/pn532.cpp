@@ -262,20 +262,52 @@ uint32_t pn532_t::get_tag()
         printf("%3i got ID: %#x \n", tag_cnt_++, uid);
 
         // Read bytes to get text
+        // First authenticate
         const uint8_t data_exchange_auth[] = {
             IN_DATA_EXCHANGE,
             0x01, // MaxTg [1; 2]
             0x60, // Auth with Key A
-            0x06, // block addr
-            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // 6 bytes key
+            0x04, // block addr
+            //0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // 6 bytes key
+            0xd3, 0xf7, 0xd3, 0xf7, 0xd3, 0xf7, // 6 bytes key
             frame[frame.size() - 4], 
             frame[frame.size() - 3], 
             frame[frame.size() - 2], 
             frame[frame.size() - 1], // UID received
         };
+        write_frame(data_exchange_auth, sizeof(data_exchange_auth), 1);
+        frame = read_frame();
+        if (pn532_t::is_ack(frame))
+        {
+            sleep_ms(100);
+            frame = read_frame();
+            printf("Auth response len:%i - %#x (InDataExch + 1 = %#x) %#x (0:success 0x14:failure)\n", 
+                frame.size(), frame[0], IN_DATA_EXCHANGE + 1, frame[1]
+            );
+            if (frame[1] == 0)
+            {
+                // get block
+                const uint8_t data_exchange_auth[] = {
+                    IN_DATA_EXCHANGE,
+                    0x01, // MaxTg [1; 2]
+                    0x30, // Read block
+                    0x04 // block addr
+                };
+                write_frame(data_exchange_auth, sizeof(data_exchange_auth), 1);
+                frame = read_frame();
+                if (pn532_t::is_ack(frame))
+                {
+                    frame = read_frame();
+                    printf("Data block %#x: \n --> ", 0x06);
+                    for (int i=0; i<16; i++)
+                    {
+                        printf("%#x ", frame[2+i]);
+                    }
+                    printf("\n");
+                }
+            }
+        }
 
-        // Wait for response
-        //frame.size() == 0
 
         //
         rewind();
