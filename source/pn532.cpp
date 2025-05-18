@@ -43,6 +43,7 @@ static inline uint32_t byte_swap_32(uint32_t i)
 #define SAM_CONFIG              0x14
 #define SAM_CONFIG_ANWSER_LEN   1
 #define IN_LIST_PASSIVE_TARGET  0x4a
+#define IN_DATA_EXCHANGE        0x40
 
 // Using read/write register to first poll values, then set
 //#define RF_CONFIG 0x32
@@ -206,7 +207,7 @@ void pn532_t::rewind()
     {
         //printf("rewind() ACK\n");
     }
-    else if (pn532_t::is_ack(frame))
+    else if (pn532_t::is_nack(frame))
     {
         printf("rewind() NACK.....\n");
     }
@@ -261,6 +262,20 @@ uint32_t pn532_t::get_tag()
         printf("%3i got ID: %#x \n", tag_cnt_++, uid);
 
         // Read bytes to get text
+        const uint8_t data_exchange_auth[] = {
+            IN_DATA_EXCHANGE,
+            0x01, // MaxTg [1; 2]
+            0x60, // Auth with Key A
+            0x06, // block addr
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // 6 bytes key
+            frame[frame.size() - 4], 
+            frame[frame.size() - 3], 
+            frame[frame.size() - 2], 
+            frame[frame.size() - 1], // UID received
+        };
+
+        // Wait for response
+        //frame.size() == 0
 
         //
         rewind();
