@@ -38,6 +38,28 @@ static inline uint32_t byte_swap_32(uint32_t i)
     return ret;
 }
 
+/**
+ * NDEF (NFC Data Exchange Format) message
+ * stored on an NFC Forum Type 2 Tag
+ */
+static const uint8_t ChatN_template[] = {
+    0x03,   // NDEF start block
+    0x0c,   // NDEF message size
+    0xd1,   // Flags MB=1, ME=1, CF=0, SR=1, IL=0, TNF=001 (First, Last, Not Chunked, Short Record, No ID, Well-Known Type)
+    0x01,   // 1 byte styoe field
+    0x08,   // 8 bytes payload
+    0x54,   // 'T' (NFC Forum Well-Known Type: Text Record)
+    0x02,   // Status Bit 7=0 (UTF-8), Bits 5-0 = 000010 (Language Code is 2 bytes long)
+    0x65,   // e
+    0x6e,   // n <-- EN for ENglish
+    0x63,   // c
+    0x68,   // h
+    0x61,   // a
+    0x74,   // t
+    0x31,   // 1 (0x32 for 2, etc)
+    0xfe    // NDEF TLV end
+};
+
 #define GET_FW_VERSION      0x02
 #define GET_FW_ANSWER_LEN   5
 #define SAM_CONFIG              0x14
@@ -279,7 +301,7 @@ uint32_t pn532_t::get_tag()
         frame = read_frame();
         if (pn532_t::is_ack(frame))
         {
-            sleep_ms(100);
+            sleep_ms(10);
             frame = read_frame();
             printf("Auth response len:%i - %#x (InDataExch + 1 = %#x) %#x (0:success 0x14:failure)\n", 
                 frame.size(), frame[0], IN_DATA_EXCHANGE + 1, frame[1]
@@ -295,15 +317,25 @@ uint32_t pn532_t::get_tag()
                 };
                 write_frame(data_exchange_auth, sizeof(data_exchange_auth), 1);
                 frame = read_frame();
+                sleep_ms(10);
                 if (pn532_t::is_ack(frame))
                 {
+                    sleep_ms(10);
                     frame = read_frame();
-                    printf("Data block %#x: \n --> ", 0x06);
-                    for (int i=0; i<16; i++)
+                    //printf("Data block %#x: len: %i\n --> ", 0x04, frame.size());
+                    if (frame.size() >= 18)
                     {
-                        printf("%#x ", frame[2+i]);
+                        //for (int i=0; i<16; i++)
+                        //{
+                        //    printf("%#x ", frame[2+i]);
+                        //}
+                        //printf("\n");
+                        if (memcmp(&(frame[2]), ChatN_template, sizeof(ChatN_template)) == 0)
+                        {
+                            printf("MATCH TEST pattern !!!!!!!!!!!! \n");
+                        }
                     }
-                    printf("\n");
+                    //printf("----------------------------------\n");
                 }
             }
         }

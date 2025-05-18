@@ -96,7 +96,7 @@ int main()
     //pwm_set_gpio_level(BUZZER_PIN, 0);
 
 
-    sleep_ms(1000);
+    //sleep_ms(1000);
 
     //pn532_2.loop_for_tag();
     printf("main rewind: \n");
