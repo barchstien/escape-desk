@@ -9,7 +9,7 @@
 #include <stdio.h>
 
 #define PN532_I2C_ADDRESS 0x24
-#define I2C_READ_LEN 20
+#define I2C_READ_LEN 30
 
 struct pn532_backend_i2c_t : public pn532_backend_t
 {

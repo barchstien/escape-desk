@@ -27,11 +27,45 @@ static inline void hexdump(std::deque<uint8_t>& data)
     }
 }
 
+static inline uint32_t byte_swap_32(uint32_t i)
+{
+    uint8_t* d = (uint8_t*)(&i);
+    uint32_t ret = 0;
+    ret += d[0] << 24;
+    ret += d[1] << 16;
+    ret += d[2] << 8;
+    ret += d[3] << 0;
+    return ret;
+}
+
+/**
+ * NDEF (NFC Data Exchange Format) message
+ * stored on an NFC Forum Type 2 Tag
+ */
+static const uint8_t ChatN_template[] = {
+    0x03,   // NDEF start block
+    0x0c,   // NDEF message size
+    0xd1,   // Flags MB=1, ME=1, CF=0, SR=1, IL=0, TNF=001 (First, Last, Not Chunked, Short Record, No ID, Well-Known Type)
+    0x01,   // 1 byte type field
+    0x08,   // 8 bytes payload
+    0x54,   // 'T' (NFC Forum Well-Known Type: Text Record)
+    0x02,   // Status Bit 7=0 (UTF-8), Bits 5-0 = 000010 (Language Code is 2 bytes long)
+    0x65,   // e
+    0x6e,   // n <-- EN for ENglish
+    0x63,   // c
+    0x68,   // h
+    0x61,   // a
+    0x74,   // t
+    0x31,   // 1 (0x32 for 2, etc)
+    0xfe    // NDEF TLV end
+};
+
 #define GET_FW_VERSION      0x02
 #define GET_FW_ANSWER_LEN   5
 #define SAM_CONFIG              0x14
 #define SAM_CONFIG_ANWSER_LEN   1
 #define IN_LIST_PASSIVE_TARGET  0x4a
+#define IN_DATA_EXCHANGE        0x40
 
 // Using read/write register to first poll values, then set
 //#define RF_CONFIG 0x32
@@ -47,8 +81,8 @@ static inline void hexdump(std::deque<uint8_t>& data)
 #define WRITE_PREAMBLE_LEN 10
 
 
-pn532_t::pn532_t(int dev_num, int p1, int p2, backend be, uint32_t tag)
- : tag_cnt_(0), target_tag_(tag), name_("")
+pn532_t::pn532_t(int dev_num, int p1, int p2, backend be, std::string key)
+ : tag_cnt_(0), key_(key), name_("")
 {
     if (be == pn532_t::uart)
     {
@@ -195,7 +229,7 @@ void pn532_t::rewind()
     {
         //printf("rewind() ACK\n");
     }
-    else if (pn532_t::is_ack(frame))
+    else if (pn532_t::is_nack(frame))
     {
         printf("rewind() NACK.....\n");
     }
@@ -211,7 +245,7 @@ void pn532_t::rewind()
     }
 }
 
-uint32_t pn532_t::get_tag()
+bool pn532_t::key_in_tag()
 {
     auto frame = read_frame();
     if (pn532_t::is_nack(frame))
@@ -221,28 +255,92 @@ uint32_t pn532_t::get_tag()
     }
     else if (pn532_t::is_ack(frame))
     {
-        //printf("%%%% got ACK !!!!\n");
+        // shouldn't happen, ignore...
     }
     else if (frame.size() == 0)
     {
         // nothing to read
+        last_id_read_ = 0;
     }
     // starting from here, frame is considered well formed
     else if (frame[0] == IN_LIST_PASSIVE_TARGET + 1)
     {
+        //printf("Got %i bytes\n", frame.size());
+        int num_of_target = frame[1];
+        //printf("Found %i targets\n", frame[1]);
+        // expect :
+        // num: 1
+        // SENS_RES: 0x0 0x4 (ATQA)
+        // SEL_RES:  0x08 (SAK: 4 bytes UID)
+        // UID length: 4 bytes
+        // UID
+        int uid_len = frame[6];
+        // get uid
+        uint32_t uid = 0;
+        memcpy(&uid, &frame[frame.size() - uid_len], uid_len);
+        uid = byte_swap_32(uid);
+        if (uid != last_id_read_)
+        {
+            printf("%6i got ID: %#x \n", tag_cnt_++, uid);
+            printf("       Target num: %i ATQA:%#x %#x SAK:%#x UID len:%i \n",
+                frame[2], frame[3], frame[4], frame[5], frame[6]
+            );
+        }
+        last_id_read_ = uid;
+
+        // Read bytes to get text
+        // First authenticate
+        const uint8_t data_exchange_auth[] = {
+            IN_DATA_EXCHANGE,
+            0x01, // MaxTg [1; 2]
+            0x60, // Auth with Key A
+            0x04, // block addr
+            //0xff, 0xff, 0xff, 0xff, 0xff, 0xff, // 6 bytes key
+            0xd3, 0xf7, 0xd3, 0xf7, 0xd3, 0xf7, // 6 bytes key
+            frame[frame.size() - 4], 
+            frame[frame.size() - 3], 
+            frame[frame.size() - 2], 
+            frame[frame.size() - 1], // UID received
+        };
+        write_frame(data_exchange_auth, sizeof(data_exchange_auth), 1);
+        frame = read_frame();
+        if (pn532_t::is_ack(frame))
+        {
+            frame = read_frame();
+            //printf("Auth response len:%i - %#x (InDataExch + 1 = %#x) %#x (0:success 0x14:failure)\n", 
+            //    frame.size(), frame[0], IN_DATA_EXCHANGE + 1, frame[1]
+            //);
+            if (frame[1] == 0) // ie success
+            {
+                // get block
+                const uint8_t data_exchange_auth[] = {
+                    IN_DATA_EXCHANGE,
+                    0x01, // Tg [1; 2]
+                    0x30, // Read block
+                    0x04  // block addr
+                };
+                write_frame(data_exchange_auth, sizeof(data_exchange_auth), 1);
+                frame = read_frame();
+                if (pn532_t::is_ack(frame))
+                {
+                    frame = read_frame();
+                    //printf("Data block %#x: len: %i\n --> ", 0x04, frame.size());
+                    if (frame.size() >= 18)
+                    {
+                        // Just look for string, bypass NDEF logic
+                        std::string::size_type pos = std::string(frame.begin(), frame.end()).find(key_);
+                        if (pos != std::string::npos)
+                        {
+                            rewind();
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
         rewind();
-        std::vector<uint8_t> id = std::vector<uint8_t>(
-            frame.begin() + frame.size() - 4,
-            frame.end()
-        );
-        uint32_t ret = 0;
-        memcpy(&ret, &frame[frame.size() - 4], 4);
-        //printf("%3i %s got ID: %#x  -- target: %#x \n", 
-        //    tag_cnt_++, name_.c_str(), ret, target_tag_);
-        rewind();
-        return ret;
     }
-    return 0;
+    return false;
 }
 
 

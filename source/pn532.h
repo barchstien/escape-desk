@@ -6,6 +6,7 @@
 #include <memory>
 #include <stdint.h>
 #include <stdbool.h>
+#include <string>
 #include <vector>
 
 #include "pn532_backend.h"
@@ -51,9 +52,9 @@ struct pn532_t
      * @param p1 uart RX or i2c SCL
      * @param p2 uart TX oe i2c SDA
      * @param ba backend enum uart/i2c
-     * @param tag target tag id
+     * @param key target NDEF text record tag, if present unlocks
      */
-    pn532_t(int dev_num, int p1, int p2, backend be, uint32_t tag);
+    pn532_t(int dev_num, int p1, int p2, backend be, std::string key);
 
     uint32_t version();
     const std::string name() const { return name_; }
@@ -66,20 +67,13 @@ struct pn532_t
     void rewind();
 
     /**
-     * @return tag or 0 if nothing
+     * Check if a nearby NFC tag has the target text
+     * @return true if find NDEF text record with key
      * @warning need to rewind if actually found a tag
      */
-    uint32_t get_tag();
+    bool key_in_tag();
 
-    /**
-     * @return true if target tag is in range
-     * @warning need to rewind if actually is in range
-     */
-    bool has_target_tag()
-    {
-        return get_tag() == target_tag_;
-    }
-    
+protected:
     /** Write a frame command/data */
     void write_frame(const uint8_t* data, int len, int preamble_len);
     
@@ -96,7 +90,6 @@ struct pn532_t
     static bool is_ack(std::vector<uint8_t> frame);
     static bool is_nack(std::vector<uint8_t> frame);
 
-protected:
     uint8_t read_reg(uint16_t reg);
     void write_reg(uint16_t reg, uint8_t value);
 
@@ -108,13 +101,14 @@ protected:
 
     /** Number of tags hit */
     uint32_t tag_cnt_;
+    uint32_t last_id_read_;
 
     std::string name_;
 
     /**
      * Chevron locked as long as this tag is in range
      */
-    uint32_t target_tag_;
+    std::string key_;
 };
 
 #endif // PN532_H
