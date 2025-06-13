@@ -26,9 +26,8 @@ const uint BUZZER_PIN = 22;
 int main() 
 {
     stdio_init_all();
-    //stdio_usb_init();
     // Wait a little before starting
-    sleep_ms(5000);
+    sleep_ms(500);
     stdio_filter_driver(&stdio_usb);
 
     std::vector<pn532_t> nfc_read_list;
@@ -91,18 +90,11 @@ int main()
     pwm_init(slice_num, &config, true);
     //
     uint16_t level = wrap_value / 10;
-    //pwm_set_gpio_level(BUZZER_PIN, level);
-    //sleep_ms(1000);
-    //pwm_set_gpio_level(BUZZER_PIN, 0);
 
-
-    //sleep_ms(1000);
-
-    //pn532_2.loop_for_tag();
-    printf("main rewind: \n");
+    printf("main initial rewind: \n");
     for (auto& nfc_r : nfc_read_list)
     {
-        printf("-- \n");
+        printf("-- %s\n", nfc_read_list.back().name().c_str());
         nfc_r.rewind();
     }
 

@@ -101,6 +101,7 @@ protected:
 
     /** Number of tags hit */
     uint32_t tag_cnt_;
+    uint32_t last_id_read_;
 
     std::string name_;
 

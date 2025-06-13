@@ -260,6 +260,7 @@ bool pn532_t::key_in_tag()
     else if (frame.size() == 0)
     {
         // nothing to read
+        last_id_read_ = 0;
     }
     // starting from here, frame is considered well formed
     else if (frame[0] == IN_LIST_PASSIVE_TARGET + 1)
@@ -273,15 +274,19 @@ bool pn532_t::key_in_tag()
         // SEL_RES:  0x08 (SAK: 4 bytes UID)
         // UID length: 4 bytes
         // UID
-        printf("Target num: %i ATQA:%#x %#x SAK:%#x UID len:%i \n",
-            frame[2], frame[3], frame[4], frame[5], frame[6]
-        );
         int uid_len = frame[6];
         // get uid
         uint32_t uid = 0;
         memcpy(&uid, &frame[frame.size() - uid_len], uid_len);
         uid = byte_swap_32(uid);
-        printf("%3i got ID: %#x \n", tag_cnt_++, uid);
+        if (uid != last_id_read_)
+        {
+            printf("%6i got ID: %#x \n", tag_cnt_++, uid);
+            printf("       Target num: %i ATQA:%#x %#x SAK:%#x UID len:%i \n",
+                frame[2], frame[3], frame[4], frame[5], frame[6]
+            );
+        }
+        last_id_read_ = uid;
 
         // Read bytes to get text
         // First authenticate
