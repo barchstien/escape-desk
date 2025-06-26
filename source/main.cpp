@@ -21,6 +21,8 @@
 #define LED_PIN_LOCK_1 1
 #define LED_PIN_LOCK_2 2
 
+#define MOSFET_PIN 3
+
 const uint BUZZER_PIN = 22;
 
 int main() 
@@ -78,6 +80,10 @@ int main()
         sleep_ms(1000);
         gpio_put(LED_PIN_LOCK[i], 0);
     }
+    // MOSFET
+    gpio_init(MOSFET_PIN);
+    gpio_set_dir(MOSFET_PIN, GPIO_OUT);
+    gpio_put(MOSFET_PIN, 1);
 
     // Buzzer
     gpio_set_function(BUZZER_PIN, GPIO_FUNC_PWM);
@@ -119,10 +125,14 @@ int main()
         if (nfc_lock[0] && nfc_lock[1] && nfc_lock[2])
         {
             pwm_set_gpio_level(BUZZER_PIN, level);
+            // power magnet down, ie release
+            gpio_put(MOSFET_PIN, 0);
         }
         else
         {
             pwm_set_gpio_level(BUZZER_PIN, 0);
+            // power magnet up
+            gpio_put(MOSFET_PIN, 1);
         }
 
         sleep_ms(10);
